@@ -1,0 +1,33 @@
+{
+  "leads": [],
+  "emails": [],
+  "settings": {
+    "smtp": {
+      "host": "smtp.gmail.com",
+      "port": 587,
+      "user": "your-email@gmail.com",
+      "pass": "",
+      "fromName": "Arbaz Khan",
+      "fromEmail": "your-email@gmail.com",
+      "secure": false,
+      "simulatedMode": true
+    },
+    "ai": {
+      "provider": "gemini",
+      "apiKey": "",
+      "businessName": "Arbaz Khan — AI Systems & Engineering",
+      "senderName": "Arbaz Khan",
+      "senderTitle": "AI Engineer & Systems Architect",
+      "productService": "Custom AI Solutions, LLM Pipelines & Intelligent Systems",
+      "pitchOffer": "I build production-grade AI systems, intelligent automation pipelines, and custom ML solutions that solve high-impact business problems. Portfolio: https://arbazkhaan.vercel.app/",
+      "pricingModel": "Project-Based & Retainers: Starting at $1,500. Special Offer: Free AI architectural audit & risk-free proof of concept.",
+      "bookingLink": "https://arbazkhaan.vercel.app/#contact",
+      "tone": "persuasive_professional",
+      "autopilot": true,
+      "portfolioUrl": "https://arbazkhaan.vercel.app/"
+    },
+    "serpApiKey": "",
+    "googlePlacesApiKey": ""
+  },
+  "activityLogs": []
+}

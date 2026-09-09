@@ -1,0 +1,13 @@
+{
+  "name": "leads-finder-workspace",
+  "version": "1.0.0",
+  "description": "Autonomous AI Lead Finder, Cold Outreach and Deal Closer Platform",
+  "scripts": {
+    "start": "node server/src/index.js",
+    "dev:server": "node --watch server/src/index.js",
+    "dev:client": "npm run dev --prefix client",
+    "build:client": "npm run build --prefix client",
+    "build": "npm run build:client",
+    "install:all": "npm install --prefix server && npm install --prefix client"
+  }
+}
