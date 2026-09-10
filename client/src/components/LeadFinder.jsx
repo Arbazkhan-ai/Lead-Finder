@@ -33,6 +33,32 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
 
   const hasMapsApiKey = Boolean(settings?.serpApiKey || settings?.googlePlacesApiKey);
 
+  const getLeadProblemSnippet = (lead) => {
+    const cat = ((lead.category || '') + ' ' + (lead.company || '')).toLowerCase();
+    if (cat.includes('dent') || cat.includes('clinic') || cat.includes('med') || cat.includes('doctor') || cat.includes('health')) {
+      return { pain: 'Missing 30%+ after-hours patient inquiries', sol: '24/7 AI Intake & Appointment Concierge' };
+    }
+    if (cat.includes('law') || cat.includes('attorney') || cat.includes('legal') || cat.includes('counsel')) {
+      return { pain: 'Slow case response times & lost retainers', sol: '60s Instant Case Screening & Booking' };
+    }
+    if (cat.includes('agency') || cat.includes('marketing') || cat.includes('seo') || cat.includes('design') || cat.includes('media')) {
+      return { pain: 'Account management overhead & client churn', sol: 'Automated Client Ops, Reporting & Upsells' };
+    }
+    if (cat.includes('real estate') || cat.includes('realt') || cat.includes('property') || cat.includes('broker')) {
+      return { pain: 'Weekend buyer lead dropoff & tour scheduling', sol: '24/7 Showing Concierge & Qualification' };
+    }
+    if (cat.includes('roof') || cat.includes('plumb') || cat.includes('hvac') || cat.includes('contractor') || cat.includes('electric')) {
+      return { pain: 'Unanswered emergency calls & lost job quotes', sol: 'Instant Quote & Dispatch Workflow' };
+    }
+    if (cat.includes('account') || cat.includes('cpa') || cat.includes('tax') || cat.includes('financ')) {
+      return { pain: 'Client document chasing & onboarding lag', sol: 'Automated Discovery & Tax Document Sync' };
+    }
+    if (cat.includes('tech') || cat.includes('software') || cat.includes('saas') || cat.includes('app')) {
+      return { pain: 'Inbound demo dropoff & slow support resolution', sol: 'Automated Enterprise Demo Triage & AI Support' };
+    }
+    return { pain: 'Delayed responses & unclosed pipeline leads', sol: 'Automated 24/7 AI Lead Capture & Follow-up' };
+  };
+
   const quickPresets = [
     { q: 'Dental Clinics', loc: 'Austin, TX', tag: 'Free OSM' },
     { q: 'Law Firms', loc: 'Austin, TX', tag: 'Free OSM' },
@@ -466,15 +492,27 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
                             />
                           </td>
 
-                          {/* Company Name */}
-                          <td className="p-3.5">
-                            <div className="font-bold text-white text-sm">{lead.company}</div>
+                          {/* Company Name & Problem-Solution Diagnosis */}
+                          <td className="p-3.5 max-w-[280px]">
+                            <div className="font-bold text-white text-sm truncate" title={lead.company}>{lead.company}</div>
                             <span className="text-[11px] text-slate-400 capitalize">{lead.category}</span>
-                            <div className="mt-1">
-                              <span className="text-[10px] px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-mono">
-                                100% Real Live Place
-                              </span>
-                            </div>
+                            
+                            {/* Problem & Solution Tags */}
+                            {(() => {
+                              const snippet = getLeadProblemSnippet(lead);
+                              return (
+                                <div className="mt-1.5 space-y-1">
+                                  <div className="flex items-center space-x-1 text-[10px] text-rose-300 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20 truncate" title={`Problem: ${snippet.pain}`}>
+                                    <span className="font-bold text-rose-400 shrink-0">Problem:</span>
+                                    <span className="truncate">{snippet.pain}</span>
+                                  </div>
+                                  <div className="flex items-center space-x-1 text-[10px] text-emerald-300 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 truncate" title={`Solution: ${snippet.sol}`}>
+                                    <span className="font-bold text-emerald-400 shrink-0">Solution:</span>
+                                    <span className="truncate">{snippet.sol}</span>
+                                  </div>
+                                </div>
+                              );
+                            })()}
                           </td>
 
                           {/* Website & Email */}
@@ -624,9 +662,10 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
                                   if (onLeadsAdded) onLeadsAdded();
                                   if (onStartOutreach) onStartOutreach(res.lead);
                                 }}
-                                className="text-[10px] text-slate-400 hover:text-cyan-400 underline font-medium"
+                                className="text-[10px] text-cyan-400 hover:text-cyan-300 font-bold hover:underline inline-flex items-center space-x-1"
                               >
-                                View / Draft
+                                <Sparkles className="w-2.5 h-2.5" />
+                                <span>Draft &amp; Solve Problem</span>
                               </button>
                             </div>
                           </td>

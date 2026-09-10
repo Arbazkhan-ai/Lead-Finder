@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Globe, Mail, Phone, ExternalLink, Save, Trash2, DollarSign } from 'lucide-react';
+import { X, Globe, Mail, Phone, ExternalLink, Save, Trash2, DollarSign, AlertCircle, Zap, TrendingUp } from 'lucide-react';
 import api from '../api/client';
 
 export default function LeadDetailModal({ lead, isOpen, onClose, onLeadUpdated, onDeleteLead }) {
@@ -13,8 +13,11 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onLeadUpdated, 
     website: lead.website || '',
     status: lead.status || 'new',
     dealValue: lead.dealValue || 1200,
+    category: lead.category || '',
     notes: lead.notes || '',
-    category: lead.category || ''
+    problem: lead.problem || '',
+    solution: lead.solution || '',
+    howWeHelp: lead.howWeHelp || ''
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -35,13 +38,13 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onLeadUpdated, 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 max-h-[90vh] flex flex-col">
         
         {/* Header */}
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/50">
+        <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/50 shrink-0">
           <div className="flex items-center space-x-2">
             <Globe className="w-5 h-5 text-cyan-400" />
-            <h3 className="font-bold text-white text-base">Edit Lead & Website Details</h3>
+            <h3 className="font-bold text-white text-base">Edit Lead &amp; Strategy Details</h3>
           </div>
           <button
             onClick={onClose}
@@ -52,7 +55,7 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onLeadUpdated, 
         </div>
 
         {/* Form */}
-        <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs">
+        <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs overflow-y-auto flex-1">
           
           <div className="grid grid-cols-2 gap-3">
             <div>
@@ -148,10 +151,59 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onLeadUpdated, 
             </div>
           </div>
 
+          {/* Problem, Solution & Value Strategy Block */}
+          <div className="pt-2 border-t border-slate-800 space-y-3">
+            <span className="text-xs font-bold text-cyan-400 uppercase tracking-wider block">
+              Problem &amp; Solution Strategy
+            </span>
+
+            <div>
+              <label className="text-slate-300 font-semibold flex items-center space-x-1.5 mb-1 text-[11px]">
+                <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+                <span>Identified Problem / Bottleneck</span>
+              </label>
+              <textarea
+                rows={2}
+                value={formData.problem}
+                onChange={(e) => setFormData({ ...formData, problem: e.target.value })}
+                placeholder="e.g. Missing after-hours inquiries when front desk is closed..."
+                className="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:border-cyan-400 focus:outline-none text-xs"
+              />
+            </div>
+
+            <div>
+              <label className="text-slate-300 font-semibold flex items-center space-x-1.5 mb-1 text-[11px]">
+                <Zap className="w-3.5 h-3.5 text-emerald-400" />
+                <span>How To Solve Their Problem</span>
+              </label>
+              <textarea
+                rows={2}
+                value={formData.solution}
+                onChange={(e) => setFormData({ ...formData, solution: e.target.value })}
+                placeholder="e.g. Deploy automated 24/7 AI intake concierge on website and SMS..."
+                className="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:border-cyan-400 focus:outline-none text-xs"
+              />
+            </div>
+
+            <div>
+              <label className="text-slate-300 font-semibold flex items-center space-x-1.5 mb-1 text-[11px]">
+                <TrendingUp className="w-3.5 h-3.5 text-cyan-400" />
+                <span>How We Help &amp; ROI Offer</span>
+              </label>
+              <textarea
+                rows={2}
+                value={formData.howWeHelp}
+                onChange={(e) => setFormData({ ...formData, howWeHelp: e.target.value })}
+                placeholder="e.g. Turnkey setup in 5 days with zero staff disruption, 14-day risk-free trial..."
+                className="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:border-cyan-400 focus:outline-none text-xs"
+              />
+            </div>
+          </div>
+
           <div>
-            <label className="text-slate-400 font-semibold block mb-1">Notes & History</label>
+            <label className="text-slate-400 font-semibold block mb-1">Notes &amp; History</label>
             <textarea
-              rows={3}
+              rows={2}
               value={formData.notes}
               onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
               className="w-full p-2.5 rounded-xl bg-slate-950 border border-slate-700 text-white focus:border-cyan-400 focus:outline-none text-xs"
@@ -159,7 +211,7 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onLeadUpdated, 
           </div>
 
           {/* Footer */}
-          <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
+          <div className="pt-3 border-t border-slate-800 flex items-center justify-between shrink-0">
             <button
               type="button"
               onClick={() => {

@@ -135,6 +135,17 @@ export default function PipelineBoard({ leads, onUpdateLead, onDeleteLead, onOpe
                         <Mail className="w-3 h-3 text-slate-500 shrink-0" />
                         <span className="truncate">{lead.email || 'No email'}</span>
                       </div>
+
+                      {/* Problem or Niche Tag */}
+                      {lead.problem ? (
+                        <div className="text-[10px] text-rose-300 bg-rose-500/10 px-1.5 py-0.5 rounded border border-rose-500/20 truncate mb-1" title={lead.problem}>
+                          <span className="font-bold text-rose-400">Problem: </span>{lead.problem}
+                        </div>
+                      ) : (
+                        <div className="text-[10px] text-slate-400 bg-slate-900 px-1.5 py-0.5 rounded border border-slate-800 truncate mb-1">
+                          <span>Niche: </span><strong className="text-slate-300">{lead.category || 'Business'}</strong>
+                        </div>
+                      )}
                     </div>
 
                     {/* Actions & Stage Changer */}
@@ -143,11 +154,11 @@ export default function PipelineBoard({ leads, onUpdateLead, onDeleteLead, onOpe
                       {/* Open Conversation Thread */}
                       <button
                         onClick={() => onOpenConversation(lead)}
-                        className="px-2 py-1 rounded-lg bg-blue-600/20 hover:bg-blue-600/30 text-blue-300 text-[11px] font-semibold border border-blue-500/30 flex items-center space-x-1 transition-colors"
-                        title="Open email thread & AI Closer"
+                        className="px-2 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-300 text-[11px] font-semibold border border-cyan-500/30 flex items-center space-x-1 transition-colors"
+                        title="Open email thread & Problem-Solution Closer"
                       >
-                        <MessageSquare className="w-3 h-3" />
-                        <span>AI Closer</span>
+                        <MessageSquare className="w-3 h-3 text-cyan-400" />
+                        <span>Solve &amp; Close</span>
                       </button>
 
                       {/* Stage Selector */}

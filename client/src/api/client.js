@@ -40,9 +40,10 @@ export const api = {
   },
   outreach: {
     getThread: (leadId) => request(`/outreach/thread/${leadId}`),
+    diagnoseLead: (leadId, leadData = null) => request('/outreach/diagnose-lead', { method: 'POST', body: { leadId, leadData } }),
     sendEmail: (data) => request('/outreach/send', { method: 'POST', body: data }),
-    generatePitch: (leadId) => request('/outreach/generate-pitch', { method: 'POST', body: { leadId } }),
-    generateReply: (leadId, clientReplyText) => request('/outreach/generate-reply', { method: 'POST', body: { leadId, clientReplyText } }),
+    generatePitch: (leadId, options = {}) => request('/outreach/generate-pitch', { method: 'POST', body: { leadId, ...options } }),
+    generateReply: (leadId, clientReplyText, problemSolutionAngle = null) => request('/outreach/generate-reply', { method: 'POST', body: { leadId, clientReplyText, problemSolutionAngle } }),
     simulateReply: (leadId, replyText, subject) => request('/outreach/simulate-reply', { method: 'POST', body: { leadId, replyText, subject } }),
     autoSend: (leadId, toEmail) => request('/outreach/auto-send', { method: 'POST', body: { leadId, toEmail } }),
     autoReply: (leadId, clientReplyText) => request('/outreach/auto-reply', { method: 'POST', body: { leadId, clientReplyText } }),

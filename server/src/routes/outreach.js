@@ -7,7 +7,12 @@ import {
   autoSendReply, 
   bulkAutoSendOutreach 
 } from '../services/emailService.js';
-import { generateInitialOutreach, generateAiReply } from '../services/aiNegotiator.js';
+import { 
+  generateInitialOutreach, 
+  generateAiReply, 
+  diagnoseLeadProblemSolution,
+  generateSubjectOptions
+} from '../services/aiNegotiator.js';
 
 const router = express.Router();
 
@@ -19,7 +24,34 @@ router.get('/thread/:leadId', (req, res) => {
       return res.status(404).json({ success: false, error: 'Lead not found' });
     }
     const thread = db.getEmailsForLead(lead.id);
-    res.json({ success: true, lead, thread });
+    const diagnosis = diagnoseLeadProblemSolution(lead);
+    res.json({ success: true, lead, thread, diagnosis });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/outreach/diagnose-lead - Get problem diagnosis & available strategic angles
+router.post('/diagnose-lead', (req, res) => {
+  try {
+    const { leadId, leadData } = req.body;
+    let lead = leadData;
+    if (leadId) {
+      const found = db.getLeadById(leadId);
+      if (found) lead = found;
+    }
+    if (!lead) {
+      return res.status(400).json({ success: false, error: 'leadId or leadData is required' });
+    }
+
+    const diagnosis = diagnoseLeadProblemSolution(lead);
+    const subjectOptions = generateSubjectOptions({
+      company: lead.company,
+      category: lead.category,
+      problemKeyword: diagnosis.primaryAngle.tag ? diagnosis.primaryAngle.tag.toLowerCase() : 'intake'
+    });
+
+    res.json({ success: true, diagnosis, subjectOptions });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -41,15 +73,34 @@ router.post('/send', async (req, res) => {
   }
 });
 
-// POST /api/outreach/generate-pitch - AI drafts initial cold outreach
+// POST /api/outreach/generate-pitch - AI drafts initial cold outreach with Problem-Solution-Help
 router.post('/generate-pitch', (req, res) => {
   try {
-    const { leadId } = req.body;
+    const { 
+      leadId, 
+      angleId, 
+      customProblem, 
+      customSolution, 
+      customHowWeHelp, 
+      tone, 
+      customSubject 
+    } = req.body;
+
     const lead = db.getLeadById(leadId);
     if (!lead) {
       return res.status(404).json({ success: false, error: 'Lead not found' });
     }
-    const pitch = generateInitialOutreach({ lead });
+
+    const pitch = generateInitialOutreach({ 
+      lead, 
+      angleId, 
+      customProblem, 
+      customSolution, 
+      customHowWeHelp, 
+      tone: tone || 'problem_solution', 
+      customSubject 
+    });
+
     res.json({ success: true, pitch });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
@@ -59,13 +110,13 @@ router.post('/generate-pitch', (req, res) => {
 // POST /api/outreach/generate-reply - AI drafts next response in current thread
 router.post('/generate-reply', async (req, res) => {
   try {
-    const { leadId, clientReplyText } = req.body;
+    const { leadId, clientReplyText, problemSolutionAngle } = req.body;
     const lead = db.getLeadById(leadId);
     if (!lead) {
       return res.status(404).json({ success: false, error: 'Lead not found' });
     }
     const thread = db.getEmailsForLead(lead.id);
-    const reply = await generateAiReply({ lead, thread, clientReplyText });
+    const reply = await generateAiReply({ lead, thread, clientReplyText, problemSolutionAngle });
     res.json({ success: true, reply });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
