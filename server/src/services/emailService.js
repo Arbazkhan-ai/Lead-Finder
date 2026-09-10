@@ -1,7 +1,7 @@
 import nodemailer from 'nodemailer';
 import db from '../db.js';
 import { analyzeClientReply, generateAiReply, generateInitialOutreach } from './aiNegotiator.js';
-import { scrapeWebsite } from './leadFinder.js';
+import { findRealEmailForLead } from './leadFinder.js';
 
 let transporter = null;
 
@@ -25,7 +25,7 @@ function getTransporter() {
 }
 
 /**
- * Send outbound email to a lead
+ * Send outbound email to a lead with strict validation & clear error feedback
  */
 export async function sendEmail({ leadId, subject, body, aiGenerated = false, toEmail = null }) {
   const lead = db.getLeadById(leadId);
@@ -36,9 +36,20 @@ export async function sendEmail({ leadId, subject, body, aiGenerated = false, to
   const settings = db.getSettings();
   const smtp = settings.smtp || {};
 
-  // If toEmail was specified and differs from lead's existing email, update lead record
+  // Resolve target email
   const targetEmail = (toEmail || lead.email || '').trim();
-  if (targetEmail && targetEmail !== lead.email) {
+  if (!targetEmail) {
+    throw new Error(`Recipient email address not found for "${lead.company}". Please enter a valid email or click "Find Real Email".`);
+  }
+
+  // Strict email format validation
+  const validEmailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,10}$/;
+  if (!validEmailRegex.test(targetEmail)) {
+    throw new Error(`Invalid email address format: "${targetEmail}". Please verify the address before sending.`);
+  }
+
+  // If toEmail was specified and differs from lead's existing email, update lead record
+  if (targetEmail !== lead.email) {
     db.updateLead(lead.id, { email: targetEmail });
     lead.email = targetEmail;
   }
@@ -46,7 +57,7 @@ export async function sendEmail({ leadId, subject, body, aiGenerated = false, to
   const senderName = smtp.fromName || 'Arbaz Khan';
   const senderEmail = smtp.fromEmail || smtp.user || 'arbazkhanofficial@gmail.com';
   const fromHeader = `"${senderName}" <${senderEmail}>`;
-  const toHeader = targetEmail || `Recipient for ${lead.company}`;
+  const toHeader = targetEmail;
 
   let sendStatus = 'sent';
 
@@ -57,7 +68,7 @@ export async function sendEmail({ leadId, subject, body, aiGenerated = false, to
         await mailClient.sendMail({
           from: fromHeader,
           to: targetEmail,
-          // BCC yourself so the email shows directly in your Gmail Inbox as well as Sent Mail!
+          // BCC yourself so the email shows directly in your Gmail Inbox as well as Sent Mail
           bcc: senderEmail,
           subject: subject,
           text: body
@@ -65,8 +76,8 @@ export async function sendEmail({ leadId, subject, body, aiGenerated = false, to
       }
     } catch (err) {
       console.error('SMTP send error:', err.message);
-      // Fallback to simulated mode if live send fails so user workflow does not break
-      sendStatus = 'sent_simulated_fallback';
+      db.logActivity('email_delivery_failed', `Failed to send to ${targetEmail}: ${err.message}`, { leadId: lead.id });
+      throw new Error(`Mail Server Error: ${err.message} (Recipient address "${targetEmail}" may not exist or was rejected).`);
     }
   }
 
@@ -92,13 +103,14 @@ export async function sendEmail({ leadId, subject, body, aiGenerated = false, to
 
 /**
  * Receive an incoming reply from a lead (via Webhook, IMAP, or Simulation UI)
- * Then triggers autonomous AI response loop if autopilot is enabled!
  */
 export async function receiveInboundEmail({ leadId, replyText, subject = null }) {
   const lead = db.getLeadById(leadId);
   if (!lead) {
     throw new Error(`Lead with ID ${leadId} not found`);
   }
+
+  const settings = db.getSettings();
 
   // 1. Analyze the client's intent and sentiment
   const analysis = analyzeClientReply(replyText);
@@ -136,7 +148,7 @@ export async function receiveInboundEmail({ leadId, replyText, subject = null })
   let aiFollowupEmail = null;
 
   // 4. Autonomous AI Closing Loop: If client did not say "not interested", and autopilot is enabled
-  if (analysis.intent !== 'not_interested' && settings.ai.autopilot) {
+  if (analysis.intent !== 'not_interested' && settings.ai?.autopilot) {
     const thread = db.getEmailsForLead(lead.id);
     const updatedLead = db.getLeadById(lead.id);
 
@@ -206,7 +218,7 @@ export async function receiveInboundEmail({ leadId, replyText, subject = null })
 
 /**
  * Autonomous 1-Click Auto-Send:
- * Automatically creates tailored pitch for business, fills To: address, and dispatches without asking
+ * Dispatches only to real, verified emails. Never invents fake domains.
  */
 export async function autoSendOutreach({ leadId, toEmail = null }) {
   let lead = db.getLeadById(leadId);
@@ -216,25 +228,26 @@ export async function autoSendOutreach({ leadId, toEmail = null }) {
 
   // Auto-resolve recipient email
   let targetEmail = (toEmail || lead.email || '').trim();
-  if (!targetEmail && lead.website) {
+  if (!targetEmail && (lead.website || lead.company)) {
     try {
-      const scraped = await scrapeWebsite(lead.website);
-      if (scraped.primaryEmail) {
-        targetEmail = scraped.primaryEmail;
+      const found = await findRealEmailForLead({ company: lead.company, website: lead.website });
+      if (found.email) {
+        targetEmail = found.email;
         db.updateLead(lead.id, { email: targetEmail });
         lead.email = targetEmail;
       }
     } catch (_) {}
   }
 
+  // NEVER invent fake emails
   if (!targetEmail) {
-    targetEmail = `contact@${lead.company.toLowerCase().replace(/[^a-z0-9]/g, '')}.com`;
+    throw new Error(`No verified email found for "${lead.company}". Please enter their email or click "Find Real Email" to discover one.`);
   }
 
   // Auto-generate tailored pitch based on business name, niche & website
   const pitch = generateInitialOutreach({ lead });
 
-  // Immediately send email without asking
+  // Send email
   const emailRecord = await sendEmail({
     leadId: lead.id,
     subject: pitch.subject,
@@ -261,13 +274,16 @@ export async function autoSendOutreach({ leadId, toEmail = null }) {
 }
 
 /**
- * Autonomous 1-Click Auto-Reply:
- * Automatically crafts closing counter-reply according to client email and sends without asking
+ * Autonomous 1-Click Auto-Reply
  */
 export async function autoSendReply({ leadId, clientReplyText = null }) {
   const lead = db.getLeadById(leadId);
   if (!lead) {
     throw new Error(`Lead with ID ${leadId} not found`);
+  }
+
+  if (!lead.email) {
+    throw new Error(`No verified email address for "${lead.company}". Please add an email address.`);
   }
 
   const thread = db.getEmailsForLead(lead.id);
@@ -277,7 +293,7 @@ export async function autoSendReply({ leadId, clientReplyText = null }) {
   // Auto-generate reply based on client message
   const aiResponse = await generateAiReply({ lead, thread, clientReplyText: replyText });
 
-  // Immediately dispatch email without asking
+  // Dispatch email
   const emailRecord = await sendEmail({
     leadId: lead.id,
     subject: aiResponse.subject,
@@ -303,16 +319,15 @@ export async function autoSendReply({ leadId, clientReplyText = null }) {
 }
 
 /**
- * Bulk Autonomous Outreach:
- * Automatically imports and dispatches tailored emails to multiple selected leads in one go
+ * Bulk Autonomous Outreach
  */
 export async function bulkAutoSendOutreach({ leads = [] }) {
   const sentList = [];
+  const errors = [];
 
   for (const item of leads) {
     try {
       let leadId = item.id;
-      // If lead is not saved yet, save it first
       if (!leadId || !db.getLeadById(leadId)) {
         const created = db.createLead(item);
         leadId = created.id;
@@ -322,12 +337,14 @@ export async function bulkAutoSendOutreach({ leads = [] }) {
       sentList.push(res);
     } catch (err) {
       console.warn(`Bulk auto-send error for lead ${item.company || 'unknown'}:`, err.message);
+      errors.push({ company: item.company, error: err.message });
     }
   }
 
   return {
     count: sentList.length,
-    sent: sentList
+    sent: sentList,
+    errors
   };
 }
 

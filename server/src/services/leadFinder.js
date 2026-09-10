@@ -6,30 +6,60 @@ import db from '../db.js';
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
 // Email regex pattern
-const EMAIL_REGEX = /([a-zA-Z0-9._-]+@[a-zA-Z0-9._-]+\.[a-zA-Z]{2,6})/gi;
+const EMAIL_REGEX = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,10})/gi;
 
-// Junk email patterns
+// Junk email & placeholder patterns to strictly reject
 const JUNK_PATTERNS = [
   'example.com', 'domain.com', 'email.com', 'yourname@', 'sentry.io',
   'wixpress.com', 'wordpress.com', 'cloudflare.com', 'bootstrap.com',
-  'github.com', 'schema.org', 'w3.org', '.png', '.jpg', '.jpeg', '.svg', '.webp'
+  'github.com', 'schema.org', 'w3.org', 'test@', 'placeholder@',
+  'sample@', 'test.com', 'user@', 'admin@domain', 'name@domain',
+  'someone@', 'myemail@', 'mail@mail.com', 'noreply@', 'no-reply@'
 ];
 
-function cleanEmail(email) {
+/**
+ * Clean & rigorously validate real email addresses
+ */
+export function cleanEmail(email) {
   if (!email) return null;
-  const trimmed = email.trim().toLowerCase();
+  let trimmed = email.trim().toLowerCase();
+
+  // Strip wrapping characters: quotes, parentheses, brackets, commas, semicolons, trailing dots
+  trimmed = trimmed.replace(/^[<("'{\[\s]+|[>)"'}\],\s;.]+$/g, '');
+
+  // RFC email regex validation
+  const validFormat = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,10}$/.test(trimmed);
+  if (!validFormat) return null;
+
+  // Reject image or font file extensions
+  if (/\.(png|jpg|jpeg|svg|webp|gif|bmp|css|js|woff|woff2|ttf|eot|ico)$/i.test(trimmed)) {
+    return null;
+  }
+
+  // Reject junk patterns
   for (const junk of JUNK_PATTERNS) {
     if (trimmed.includes(junk)) return null;
   }
+
   if (trimmed.length < 6 || trimmed.length > 80) return null;
   return trimmed;
 }
 
-function cleanPhone(phone) {
+export function cleanPhone(phone) {
   if (!phone) return null;
   const digits = phone.replace(/\D/g, '');
   if (digits.length < 7 || digits.length > 15) return null;
   return phone.trim();
+}
+
+/**
+ * De-obfuscate HTML entities and anti-spam tricks
+ */
+function deobfuscateHtml(html) {
+  if (!html) return '';
+  return html
+    .replace(/&#64;|&#x40;|\s*(\[at\]|\(at\))\s*/gi, '@')
+    .replace(/\s*(\[dot\]|\(dot\))\s*/gi, '.');
 }
 
 /**
@@ -56,10 +86,15 @@ export async function scrapeWebsite(targetUrl) {
     contactPages: []
   };
 
+  let domain = '';
   try {
     const parsedBase = new URL(normalizedUrl);
-    const domain = parsedBase.hostname.replace(/^www\./, '');
+    domain = parsedBase.hostname.replace(/^www\./, '');
+  } catch (_) {
+    return result;
+  }
 
+  try {
     // 1. Fetch Homepage
     const response = await axios.get(normalizedUrl, {
       headers: {
@@ -67,11 +102,12 @@ export async function scrapeWebsite(targetUrl) {
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
         'Accept-Language': 'en-US,en;q=0.9'
       },
-      timeout: 5000,
+      timeout: 6000,
       maxRedirects: 5
     });
 
-    const $ = cheerio.load(response.data);
+    const rawHtml = deobfuscateHtml(response.data);
+    const $ = cheerio.load(rawHtml);
 
     // Extract Title & Description
     result.title = $('title').text().trim() || $('meta[property="og:title"]').attr('content') || domain;
@@ -83,6 +119,18 @@ export async function scrapeWebsite(targetUrl) {
       const email = href.replace(/^mailto:/i, '').split('?')[0];
       const cleaned = cleanEmail(email);
       if (cleaned) result.emails.add(cleaned);
+    });
+
+    // Extract JSON-LD schema metadata (very common place where clinics & businesses put official email)
+    $('script[type="application/ld+json"]').each((_, el) => {
+      try {
+        const rawJson = $(el).html();
+        const matches = rawJson.match(EMAIL_REGEX) || [];
+        for (const match of matches) {
+          const cleaned = cleanEmail(match);
+          if (cleaned) result.emails.add(cleaned);
+        }
+      } catch (_) {}
     });
 
     // Extract real tel: links
@@ -117,7 +165,7 @@ export async function scrapeWebsite(targetUrl) {
       // Check for contact / about subpage links
       const hrefLower = href.toLowerCase();
       if (
-        (hrefLower.includes('contact') || hrefLower.includes('about') || hrefLower.includes('team')) &&
+        (hrefLower.includes('contact') || hrefLower.includes('about') || hrefLower.includes('team') || hrefLower.includes('staff') || hrefLower.includes('doctor') || hrefLower.includes('attorney')) &&
         !hrefLower.startsWith('mailto:') &&
         !hrefLower.startsWith('tel:')
       ) {
@@ -130,54 +178,73 @@ export async function scrapeWebsite(targetUrl) {
       }
     });
 
-    // 2. If no email found on homepage, crawl the contact/about page if found
-    if (result.emails.size === 0 && result.contactPages.length > 0) {
-      const subpageUrl = result.contactPages[0];
-      try {
-        const subRes = await axios.get(subpageUrl, {
-          headers: { 'User-Agent': USER_AGENT },
-          timeout: 4000
-        });
-        const sub$ = cheerio.load(subRes.data);
+    // 2. If no email found on homepage, probe candidate contact/about subpages
+    if (result.emails.size === 0) {
+      const subpagesToTry = [
+        ...result.contactPages,
+        new URL('/contact', normalizedUrl).href,
+        new URL('/contact-us', normalizedUrl).href,
+        new URL('/about', normalizedUrl).href,
+        new URL('/about-us', normalizedUrl).href
+      ];
 
-        sub$('a[href^="mailto:"]').each((_, el) => {
-          const href = sub$(el).attr('href') || '';
-          const email = href.replace(/^mailto:/i, '').split('?')[0];
-          const cleaned = cleanEmail(email);
-          if (cleaned) result.emails.add(cleaned);
-        });
+      const uniqueSubpages = Array.from(new Set(subpagesToTry)).slice(0, 3);
 
-        // Also check if subpage has LinkedIn link
-        sub$('a[href]').each((_, el) => {
-          const href = sub$(el).attr('href') || '';
-          if ((href.includes('linkedin.com/company') || href.includes('linkedin.com/in')) && !result.socials.linkedin) {
-            result.socials.linkedin = href;
+      for (const subpageUrl of uniqueSubpages) {
+        if (result.emails.size > 0) break;
+        try {
+          const subRes = await axios.get(subpageUrl, {
+            headers: { 'User-Agent': USER_AGENT },
+            timeout: 4500
+          });
+          const subHtml = deobfuscateHtml(subRes.data);
+          const sub$ = cheerio.load(subHtml);
+
+          sub$('a[href^="mailto:"]').each((_, el) => {
+            const href = sub$(el).attr('href') || '';
+            const email = href.replace(/^mailto:/i, '').split('?')[0];
+            const cleaned = cleanEmail(email);
+            if (cleaned) result.emails.add(cleaned);
+          });
+
+          sub$('script[type="application/ld+json"]').each((_, el) => {
+            try {
+              const rawJson = sub$(el).html();
+              const subMatches = rawJson.match(EMAIL_REGEX) || [];
+              for (const match of subMatches) {
+                const cleaned = cleanEmail(match);
+                if (cleaned) result.emails.add(cleaned);
+              }
+            } catch (_) {}
+          });
+
+          // Check subpage body text
+          const subText = sub$('body').text();
+          const subMatches = subText.match(EMAIL_REGEX) || [];
+          for (const match of subMatches) {
+            const cleaned = cleanEmail(match);
+            if (cleaned) result.emails.add(cleaned);
           }
-        });
-
-        const subText = sub$('body').text();
-        const subMatches = subText.match(EMAIL_REGEX) || [];
-        for (const match of subMatches) {
-          const cleaned = cleanEmail(match);
-          if (cleaned) result.emails.add(cleaned);
-        }
-      } catch (subErr) {
-        // subpage crawl error ignored
+        } catch (_) {}
       }
     }
 
   } catch (err) {
-    // website crawl warning
+    // website crawl warning ignored
   }
 
-  const finalEmails = Array.from(result.emails);
+  // Prioritize emails that match the actual website domain
+  const rawEmailList = Array.from(result.emails);
+  const domainMatching = domain ? rawEmailList.filter(e => e.endsWith('@' + domain) || e.endsWith('.' + domain)) : [];
+  const otherEmails = rawEmailList.filter(e => !domainMatching.includes(e));
+  const finalEmails = [...domainMatching, ...otherEmails];
 
   return {
     url: normalizedUrl,
     title: result.title,
     description: result.description,
     emails: finalEmails,
-    primaryEmail: finalEmails[0] || '', // Only real email or empty
+    primaryEmail: finalEmails[0] || '', // ONLY real scraped email or empty
     phones: Array.from(result.phones),
     primaryPhone: Array.from(result.phones)[0] || '',
     socials: result.socials
@@ -185,8 +252,110 @@ export async function scrapeWebsite(targetUrl) {
 }
 
 /**
+ * Search the live web (DuckDuckGo Lite) for official contact email of a company
+ */
+export async function searchWebForEmail({ company, website }) {
+  let domain = '';
+  if (website) {
+    try {
+      domain = new URL(website).hostname.replace(/^www\./, '');
+    } catch (_) {}
+  }
+
+  const cleanCompany = (company || '')
+    .replace(/\s+(PLLC|LLP|LLC|Inc\.?|Corp\.?|Ltd\.?|PC|Group|Law Firm|Dental)\b/gi, '')
+    .replace(/[^\w\s]/g, ' ')
+    .trim();
+
+  const queries = [];
+  if (cleanCompany && domain) {
+    queries.push(`"${cleanCompany}" "@${domain}"`);
+    queries.push(`"${cleanCompany}" contact email`);
+  } else if (cleanCompany) {
+    queries.push(`"${cleanCompany}" contact email`);
+  } else if (domain) {
+    queries.push(`"@${domain}" contact email`);
+  }
+
+  for (const q of queries) {
+    try {
+      const ddgRes = await axios.post(
+        'https://lite.duckduckgo.com/lite/',
+        `q=${encodeURIComponent(q)}`,
+        {
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': USER_AGENT
+          },
+          timeout: 5000
+        }
+      );
+
+      const deobfuscated = deobfuscateHtml(ddgRes.data);
+      const matches = deobfuscated.match(EMAIL_REGEX) || [];
+
+      // 1. Try matching the exact domain
+      if (domain) {
+        for (const m of matches) {
+          const cleaned = cleanEmail(m);
+          if (cleaned && (cleaned.endsWith('@' + domain) || cleaned.endsWith('.' + domain))) {
+            return { email: cleaned, source: `Live Web Search (@${domain})` };
+          }
+        }
+      }
+
+      // 2. Otherwise take first valid business email that isn't search engine junk
+      for (const m of matches) {
+        const cleaned = cleanEmail(m);
+        if (cleaned && !cleaned.includes('duckduckgo') && !cleaned.includes('google') && !cleaned.includes('bing')) {
+          return { email: cleaned, source: 'Live Web Search' };
+        }
+      }
+    } catch (err) {
+      // search query error ignored
+    }
+  }
+
+  return { email: '', source: 'Not Found' };
+}
+
+/**
+ * Complete Real Email Finder combining deep website crawler + live web search
+ */
+export async function findRealEmailForLead({ company, website }) {
+  // Step 1: Deep crawl website if present
+  if (website) {
+    try {
+      const scraped = await scrapeWebsite(website);
+      if (scraped.primaryEmail) {
+        return {
+          email: scraped.primaryEmail,
+          source: 'Direct Website Scrape',
+          scrapedDetails: scraped
+        };
+      }
+    } catch (_) {}
+  }
+
+  // Step 2: Live Web Search Hunter
+  if (company || website) {
+    const webResult = await searchWebForEmail({ company, website });
+    if (webResult.email) {
+      return {
+        email: webResult.email,
+        source: webResult.source
+      };
+    }
+  }
+
+  return {
+    email: '',
+    source: 'No verified email found'
+  };
+}
+
+/**
  * Search leads with LIVE WEB, GOOGLE MAPS & LINKEDIN REACH
- * Queries both live web engines and OpenStreetMap directories to find REAL businesses
  */
 export async function searchLeads({ query, location, limit = 15 }) {
   const searchTerm = query.trim();
@@ -227,7 +396,7 @@ export async function searchLeads({ query, location, limit = 15 }) {
             company: name,
             category: place.type || searchTerm,
             website: website,
-            email: '',
+            email: '', // Never fabricate fake emails
             phone: phone,
             address: address,
             mapsUrl: mapsUrl,
@@ -260,7 +429,6 @@ export async function searchLeads({ query, location, limit = 15 }) {
           let website = '';
           let phone = '';
 
-          // Fetch Place Details for website & phone
           if (place.place_id) {
             try {
               const dUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=website,formatted_phone_number&key=${googlePlacesApiKey}`;
@@ -277,7 +445,7 @@ export async function searchLeads({ query, location, limit = 15 }) {
             company: name,
             category: (place.types && place.types[0]) ? place.types[0].replace(/_/g, ' ') : searchTerm,
             website: website,
-            email: '',
+            email: '', // Never fabricate fake emails
             phone: phone,
             address: address,
             mapsUrl: mapsUrl,
@@ -295,7 +463,7 @@ export async function searchLeads({ query, location, limit = 15 }) {
     }
   }
 
-  // Source 2: DuckDuckGo Lite Live Search (Extracts real official business websites without bot blocks)
+  // Source 3: DuckDuckGo Lite Live Search
   try {
     const ddgQuery = `${combined} -clutch -yelp -expertise -tripadvisor -wikipedia`;
     const ddgRes = await axios.post(
@@ -370,7 +538,7 @@ export async function searchLeads({ query, location, limit = 15 }) {
     console.warn('Live web search error:', ddgErr.message);
   }
 
-  // Source 3: OpenStreetMap Live Commercial POI Directory
+  // Source 4: OpenStreetMap Live Commercial POI Directory
   try {
     const nominatimUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(combined)}&format=json&addressdetails=1&extratags=1&limit=${Math.min(limit * 2, 40)}`;
     const osmRes = await axios.get(nominatimUrl, {
@@ -397,7 +565,7 @@ export async function searchLeads({ query, location, limit = 15 }) {
 
         let website = extra.website || extra['contact:website'] || extra.url || '';
         let phone = extra.phone || extra['contact:phone'] || '';
-        let email = extra.email || extra['contact:email'] || '';
+        let email = cleanEmail(extra.email || extra['contact:email'] || '');
 
         if (website && !website.startsWith('http')) {
           website = 'https://' + website;
@@ -437,18 +605,20 @@ export async function searchLeads({ query, location, limit = 15 }) {
     console.warn('Map query error:', err.message);
   }
 
-  // Auto deep-scrape websites for the top leads that have a website (concurrently with short 3s timeout)
+  // Deep crawl the top leads that have a website
   const toProcess = rawLeads.slice(0, limit);
 
   const crawlPromises = toProcess.map(async (lead) => {
     if (lead.website && !lead.email) {
       try {
         const scraped = await scrapeWebsite(lead.website);
-        lead.email = scraped.primaryEmail || lead.email;
+        if (scraped.primaryEmail) {
+          lead.email = scraped.primaryEmail;
+        }
         lead.phone = scraped.primaryPhone || lead.phone;
         lead.scrapedDetails = true;
         if (scraped.socials?.linkedin) {
-          lead.linkedinUrl = scraped.socials.linkedin; // Exact official company LinkedIn
+          lead.linkedinUrl = scraped.socials.linkedin;
         }
         if (scraped.description) {
           lead.notes = scraped.description;
@@ -463,6 +633,10 @@ export async function searchLeads({ query, location, limit = 15 }) {
 }
 
 export default {
+  cleanEmail,
+  cleanPhone,
   scrapeWebsite,
+  searchWebForEmail,
+  findRealEmailForLead,
   searchLeads
 };

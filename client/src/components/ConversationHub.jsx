@@ -34,6 +34,8 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
   const [isGeneratingAi, setIsGeneratingAi] = useState(false);
   const [isAutoSending, setIsAutoSending] = useState(false);
   const [autoSendSuccessMsg, setAutoSendSuccessMsg] = useState('');
+  const [isSearchingEmail, setIsSearchingEmail] = useState(false);
+  const [emailSearchMessage, setEmailSearchMessage] = useState('');
 
   // Simulation Sandbox
   const [simulationInput, setSimulationInput] = useState('');
@@ -143,6 +145,27 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
     setTone(newTone);
     if (body.trim()) {
       handleGeneratePitch(newTone);
+    }
+  };
+
+  const handleFindRealEmail = async () => {
+    if (!selectedLead) return;
+    setIsSearchingEmail(true);
+    setEmailSearchMessage('');
+    try {
+      const res = await api.leads.findEmail(selectedLead.id);
+      if (res.email) {
+        setRecipientEmail(res.email);
+        setSelectedLead(prev => ({ ...prev, email: res.email }));
+        setEmailSearchMessage(`Found verified email: ${res.email} (${res.source})`);
+        if (onLeadUpdated) onLeadUpdated({ ...selectedLead, email: res.email });
+      } else {
+        setEmailSearchMessage('No public email found on website or web search. Please enter manually.');
+      }
+    } catch (err) {
+      alert('Email search error: ' + err.message);
+    } finally {
+      setIsSearchingEmail(false);
     }
   };
 
@@ -654,22 +677,57 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
             <form onSubmit={handleSendEmail} className="space-y-2.5">
               
               {/* TO Line */}
-              <div className="flex items-center space-x-2 bg-slate-900/90 px-3 py-1.5 rounded-xl border border-slate-800">
-                <label className="text-[11px] font-bold text-slate-400 w-12 text-right shrink-0">To:</label>
-                <div className="relative flex-1">
-                  <input
-                    type="email"
-                    value={recipientEmail}
-                    onChange={(e) => setRecipientEmail(e.target.value)}
-                    placeholder="prospect@company.com"
-                    className="w-full bg-slate-950 border border-slate-700/80 rounded-lg px-2.5 py-1 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-cyan-400"
-                    required
-                  />
+              <div className="space-y-1">
+                <div className="flex items-center space-x-2 bg-slate-900/90 px-3 py-1.5 rounded-xl border border-slate-800">
+                  <label className="text-[11px] font-bold text-slate-400 w-12 text-right shrink-0">To:</label>
+                  <div className="relative flex-1">
+                    <input
+                      type="email"
+                      value={recipientEmail}
+                      onChange={(e) => setRecipientEmail(e.target.value)}
+                      placeholder="prospect@company.com"
+                      className="w-full bg-slate-950 border border-slate-700/80 rounded-lg px-2.5 py-1 text-xs text-white font-mono placeholder-slate-500 focus:outline-none focus:border-cyan-400"
+                      required
+                    />
+                  </div>
+
+                  {/* 1-Click Real Email Finder Button */}
+                  <button
+                    type="button"
+                    onClick={handleFindRealEmail}
+                    disabled={isSearchingEmail || !selectedLead}
+                    className="px-2.5 py-1 rounded-lg bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 hover:text-cyan-300 border border-cyan-500/30 text-[10px] font-bold flex items-center space-x-1 shrink-0 transition-colors disabled:opacity-50"
+                    title="Deep crawl website & search live web for real email address"
+                  >
+                    {isSearchingEmail ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>Searching Web...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="w-3 h-3" />
+                        <span>Find Real Email</span>
+                      </>
+                    )}
+                  </button>
+
+                  {!recipientEmail && (
+                    <span className="text-[10px] text-amber-400 font-medium px-2 py-0.5 bg-amber-500/10 rounded border border-amber-500/20 shrink-0">
+                      Email required
+                    </span>
+                  )}
                 </div>
-                {!recipientEmail && (
-                  <span className="text-[10px] text-amber-400 font-medium px-2 py-0.5 bg-amber-500/10 rounded border border-amber-500/20 shrink-0">
-                    Email required
-                  </span>
+
+                {emailSearchMessage && (
+                  <div className={`px-3 py-1 rounded-lg text-[10px] font-medium flex items-center space-x-1.5 ${
+                    emailSearchMessage.includes('Found')
+                      ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
+                      : 'bg-amber-500/10 text-amber-300 border border-amber-500/20'
+                  }`}>
+                    {emailSearchMessage.includes('Found') ? <Check className="w-3 h-3 text-emerald-400" /> : <AlertCircle className="w-3 h-3 text-amber-400" />}
+                    <span>{emailSearchMessage}</span>
+                  </div>
                 )}
               </div>
 

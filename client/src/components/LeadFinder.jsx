@@ -161,27 +161,47 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
     }
   };
 
-  // Deep scrape an individual result to fetch live email from website
-  const handleDeepScrapeRow = async (index, websiteUrl) => {
-    if (!websiteUrl) return;
+  // Deep scrape & live web search an individual result to fetch real verified email
+  const handleDeepScrapeRow = async (index, lead) => {
     setScrapingIndex(index);
 
     try {
-      const res = await api.leads.scrapeDomain(websiteUrl);
-      const data = res.data;
+      let foundEmail = '';
+      if (lead.website) {
+        try {
+          const res = await api.leads.scrapeDomain(lead.website);
+          if (res.data?.primaryEmail) {
+            foundEmail = res.data.primaryEmail;
+          }
+        } catch (_) {}
+      }
+
+      // If website crawl didn't find an email, search live web hunter
+      if (!foundEmail) {
+        const hunterRes = await api.leads.findEmail(null, {
+          company: lead.company,
+          website: lead.website
+        });
+        if (hunterRes.email) {
+          foundEmail = hunterRes.email;
+        }
+      }
 
       setSearchResults(prev => {
         const copy = [...prev];
         copy[index] = {
           ...copy[index],
-          email: data.primaryEmail || copy[index].email,
-          phone: data.primaryPhone || copy[index].phone,
-          notes: data.description || copy[index].notes,
-          scrapedDetails: true,
-          socials: data.socials
+          email: foundEmail || copy[index].email,
+          scrapedDetails: true
         };
         return copy;
       });
+
+      if (foundEmail) {
+        setAddedSuccess(`Discovered verified email for ${lead.company}: ${foundEmail}`);
+      } else {
+        alert(`No verified email found for ${lead.company}. You can still click "Draft & Solve Problem" to add one manually.`);
+      }
     } catch (err) {
       console.warn('Scraping error for row:', err.message);
     } finally {
@@ -542,19 +562,20 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
                               ) : (
                                 <button
                                   type="button"
-                                  onClick={() => handleDeepScrapeRow(idx, lead.website)}
-                                  disabled={isRowScraping || !lead.website}
-                                  className="inline-flex items-center space-x-1 text-[11px] text-amber-400 hover:text-amber-300 font-semibold underline disabled:opacity-50"
+                                  onClick={() => handleDeepScrapeRow(idx, lead)}
+                                  disabled={isRowScraping}
+                                  className="inline-flex items-center space-x-1 text-[11px] text-cyan-400 hover:text-cyan-300 font-bold underline disabled:opacity-50"
+                                  title="Search website & live web for verified email"
                                 >
                                   {isRowScraping ? (
                                     <>
-                                      <Loader2 className="w-3 h-3 animate-spin" />
-                                      <span>Crawling site...</span>
+                                      <Loader2 className="w-3 h-3 animate-spin text-cyan-400" />
+                                      <span>Hunting email...</span>
                                     </>
                                   ) : (
                                     <>
                                       <Sparkles className="w-3 h-3" />
-                                      <span>Scrape site for email</span>
+                                      <span>Find Real Email</span>
                                     </>
                                   )}
                                 </button>

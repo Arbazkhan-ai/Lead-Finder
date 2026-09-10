@@ -36,7 +36,8 @@ export const api = {
     delete: (id) => request(`/leads/${id}`, { method: 'DELETE' }),
     search: (searchParams) => request('/leads/search', { method: 'POST', body: searchParams }),
     scrapeDomain: (url) => request('/leads/scrape-domain', { method: 'POST', body: { url } }),
-    bulkAdd: (leads) => request('/leads/bulk-add', { method: 'POST', body: { leads } })
+    bulkAdd: (leads) => request('/leads/bulk-add', { method: 'POST', body: { leads } }),
+    findEmail: (leadId, data = {}) => request('/leads/find-email', { method: 'POST', body: { leadId, ...data } })
   },
   outreach: {
     getThread: (leadId) => request(`/outreach/thread/${leadId}`),

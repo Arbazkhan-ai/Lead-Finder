@@ -1,6 +1,6 @@
 import express from 'express';
 import db from '../db.js';
-import { searchLeads, scrapeWebsite } from '../services/leadFinder.js';
+import { searchLeads, scrapeWebsite, findRealEmailForLead } from '../services/leadFinder.js';
 
 const router = express.Router();
 
@@ -85,6 +85,40 @@ router.post('/scrape-domain', async (req, res) => {
     }
     const scraped = await scrapeWebsite(url);
     res.json({ success: true, data: scraped });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/leads/find-email - Live hunter to discover real verified email for a lead
+router.post('/find-email', async (req, res) => {
+  try {
+    const { leadId, company, website } = req.body;
+    let targetCompany = company;
+    let targetWebsite = website;
+
+    let lead = null;
+    if (leadId) {
+      lead = db.getLeadById(leadId);
+      if (lead) {
+        targetCompany = targetCompany || lead.company;
+        targetWebsite = targetWebsite || lead.website;
+      }
+    }
+
+    const result = await findRealEmailForLead({ company: targetCompany, website: targetWebsite });
+
+    if (result.email && leadId && lead) {
+      db.updateLead(leadId, { email: result.email });
+      db.logActivity('email_discovered', `Discovered real email for ${lead.company}: ${result.email} (${result.source})`, { leadId });
+    }
+
+    res.json({
+      success: true,
+      email: result.email,
+      source: result.source,
+      found: Boolean(result.email)
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
