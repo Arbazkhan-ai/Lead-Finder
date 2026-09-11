@@ -20,6 +20,11 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
   const [customHowWeHelp, setCustomHowWeHelp] = useState('');
   const [isEditingProblem, setIsEditingProblem] = useState(false);
 
+  // Website Weak Points Audit State
+  const [websiteAudit, setWebsiteAudit] = useState(initialLead?.websiteAudit || null);
+  const [isAuditingWebsite, setIsAuditingWebsite] = useState(false);
+  const [auditError, setAuditError] = useState('');
+
   // Composer fields & options
   const [recipientEmail, setRecipientEmail] = useState(initialLead?.email || '');
   const [subject, setSubject] = useState('');
@@ -85,6 +90,12 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
         setCustomHowWeHelp(primary ? primary.howWeHelp : '');
       }
 
+      const activeAudit = threadRes.lead?.websiteAudit || lead.websiteAudit || diagRes.diagnosis?.websiteAudit || null;
+      setWebsiteAudit(activeAudit);
+      if (activeAudit && activeAudit.weakPoints?.length > 0 && !body) {
+        setTone('website_audit');
+      }
+
       if (diagRes.subjectOptions && diagRes.subjectOptions.length > 0) {
         setSubjectOptions(diagRes.subjectOptions);
         if (!subject) setSubject(diagRes.subjectOptions[0]);
@@ -94,6 +105,74 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
     } finally {
       setIsLoadingThread(false);
     }
+  };
+
+  // Run on-demand live website audit for selected lead
+  const handleAuditWebsite = async () => {
+    if (!selectedLead || !selectedLead.website) return;
+    setIsAuditingWebsite(true);
+    setAuditError('');
+
+    try {
+      const res = await api.leads.auditWebsite(selectedLead.id, selectedLead.website);
+      if (res.audit) {
+        setWebsiteAudit(res.audit);
+      }
+      if (res.lead) {
+        setSelectedLead(res.lead);
+        if (onLeadUpdated) onLeadUpdated(res.lead);
+      }
+
+      // Re-diagnose with updated website audit
+      const diagRes = await api.outreach.diagnoseLead(selectedLead.id, res.lead || selectedLead);
+      if (diagRes.diagnosis) {
+        setDiagnosis(diagRes.diagnosis);
+        const primary = diagRes.diagnosis.primaryAngle || (diagRes.diagnosis.angles && diagRes.diagnosis.angles[0]);
+        setActiveAngle(primary);
+        setCustomProblem(primary ? primary.problem : '');
+        setCustomSolution(primary ? primary.solution : '');
+        setCustomHowWeHelp(primary ? primary.howWeHelp : '');
+      }
+      if (diagRes.subjectOptions?.length > 0) {
+        setSubjectOptions(diagRes.subjectOptions);
+        setSubject(diagRes.subjectOptions[0]);
+      }
+
+      // Auto-set tone to website audit and draft high-converting pitch
+      setTone('website_audit');
+    } catch (err) {
+      setAuditError('Website audit failed: ' + err.message);
+    } finally {
+      setIsAuditingWebsite(false);
+    }
+  };
+
+  // 1-Click Generate Pitch from Website Weak Points
+  const handleGenerateWebsiteAuditPitch = async () => {
+    if (!selectedLead) return;
+
+    let currentAudit = websiteAudit || selectedLead.websiteAudit;
+    if (!currentAudit && selectedLead.website) {
+      setIsAuditingWebsite(true);
+      try {
+        const res = await api.leads.auditWebsite(selectedLead.id, selectedLead.website);
+        if (res.audit) {
+          currentAudit = res.audit;
+          setWebsiteAudit(res.audit);
+        }
+        if (res.lead) {
+          setSelectedLead(res.lead);
+          if (onLeadUpdated) onLeadUpdated(res.lead);
+        }
+      } catch (err) {
+        console.warn('Pre-pitch audit warning:', err.message);
+      } finally {
+        setIsAuditingWebsite(false);
+      }
+    }
+
+    setTone('website_audit');
+    handleGeneratePitch('website_audit');
   };
 
   const handleSelectAngle = (angle) => {
@@ -624,6 +703,7 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
               <div className="flex flex-wrap items-center gap-1.5">
                 {/* Tone Pills */}
                 {[
+                  { id: 'website_audit', label: '🌐 Website Weak Points' },
                   { id: 'problem_solution', label: '🎯 Problem & Solution' },
                   { id: 'direct_roi', label: '💼 Direct ROI' },
                   { id: 'free_audit', label: '🔍 Free Audit' },
@@ -890,6 +970,137 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
         {/* PANE 3: Right Problem & Solution Strategy Center (3 cols) */}
         <div className="lg:col-span-3 space-y-4 overflow-y-auto pr-1">
           
+          {/* WEBSITE WEAK POINTS & CONVERSION AUDIT CARD */}
+          <div className="bg-slate-900/90 rounded-2xl p-4 border border-indigo-500/30 space-y-3.5 shadow-xl backdrop-blur-sm">
+            <div className="flex items-center justify-between border-b border-slate-800 pb-2.5">
+              <div className="flex items-center space-x-2">
+                <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-indigo-500 to-cyan-500 flex items-center justify-center text-slate-950 font-black text-xs">
+                  <Globe className="w-3.5 h-3.5 text-slate-950" />
+                </div>
+                <div>
+                  <h3 className="text-xs font-extrabold text-white uppercase tracking-wider">Website Audit</h3>
+                  <p className="text-[10px] text-slate-400 font-mono truncate max-w-[150px]">
+                    {selectedLead?.website ? selectedLead.website.replace(/^https?:\/\/(www\.)?/, '') : 'No website'}
+                  </p>
+                </div>
+              </div>
+
+              {websiteAudit ? (
+                <span className={`px-2 py-0.5 rounded-full text-[9px] font-black border ${
+                  websiteAudit.score >= 80
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                    : websiteAudit.score >= 60
+                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                    : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                }`}>
+                  {websiteAudit.score}/100
+                </span>
+              ) : (
+                <span className="px-2 py-0.5 rounded-full bg-slate-800 text-slate-400 text-[9px] border border-slate-700 font-semibold">
+                  Not Audited
+                </span>
+              )}
+            </div>
+
+            {/* Actions: Run Audit & Pitch From Weak Points */}
+            <div className="flex flex-col gap-1.5">
+              <button
+                type="button"
+                onClick={handleGenerateWebsiteAuditPitch}
+                disabled={isGeneratingAi || isAuditingWebsite || !selectedLead?.website}
+                className="w-full py-2 px-3 rounded-xl bg-gradient-to-r from-cyan-500 to-blue-600 hover:from-cyan-400 hover:to-blue-500 text-slate-950 text-xs font-extrabold shadow-md shadow-cyan-500/20 flex items-center justify-center space-x-1.5 transition-all disabled:opacity-50"
+              >
+                <Zap className="w-3.5 h-3.5 fill-current" />
+                <span>⚡ Pitch From Website Weak Points</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleAuditWebsite}
+                disabled={isAuditingWebsite || !selectedLead?.website}
+                className="w-full py-1.5 px-3 rounded-xl bg-slate-950 hover:bg-slate-800 text-slate-300 text-[11px] font-semibold border border-slate-700/80 flex items-center justify-center space-x-1.5 transition-colors disabled:opacity-50"
+              >
+                {isAuditingWebsite ? (
+                  <>
+                    <Loader2 className="w-3 h-3 animate-spin text-cyan-400" />
+                    <span>Auditing Website Weak Points...</span>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-3 h-3 text-slate-400" />
+                    <span>{websiteAudit ? 'Re-scan Website Weak Points' : 'Run Live Website Audit'}</span>
+                  </>
+                )}
+              </button>
+            </div>
+
+            {auditError && (
+              <p className="text-[10px] text-rose-400 bg-rose-500/10 p-2 rounded-lg border border-rose-500/20">
+                {auditError}
+              </p>
+            )}
+
+            {/* Display Identified Weak Points */}
+            {websiteAudit && websiteAudit.weakPoints && websiteAudit.weakPoints.length > 0 ? (
+              <div className="space-y-2 pt-1 border-t border-slate-800">
+                <div className="flex items-center justify-between text-[10px] text-slate-400 font-bold uppercase tracking-wider">
+                  <span>Detected Weak Points ({websiteAudit.weakPoints.length})</span>
+                  <span className="text-cyan-400">{websiteAudit.rating}</span>
+                </div>
+
+                <div className="space-y-1.5 max-h-56 overflow-y-auto pr-0.5">
+                  {websiteAudit.weakPoints.map(wp => (
+                    <div
+                      key={wp.id}
+                      onClick={() => {
+                        const targetAngle = {
+                          id: `audit_${wp.id}`,
+                          name: `Flaw: ${wp.title}`,
+                          tag: wp.category.toUpperCase(),
+                          problem: wp.pitchHook || `${wp.evidence} ${wp.businessImpact}`,
+                          solution: wp.solution,
+                          howWeHelp: `We implement, test, and launch this fix for ${selectedLead?.company} in 5-7 days (${wp.roiImpact}).`,
+                          weakPoint: wp
+                        };
+                        handleSelectAngle(targetAngle);
+                        setTone('website_audit');
+                        handleGeneratePitch('website_audit', targetAngle);
+                      }}
+                      className="p-2 rounded-xl bg-slate-950/70 border border-slate-800 hover:border-cyan-500/50 hover:bg-slate-900 cursor-pointer transition-all group"
+                      title="Click to anchor pitch to this weak point"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="font-bold text-[11px] text-slate-200 group-hover:text-cyan-300 transition-colors line-clamp-1">
+                          {wp.title}
+                        </span>
+                        <span className={`text-[8px] uppercase font-black px-1.5 py-0.2 rounded shrink-0 ml-1 ${
+                          wp.severity === 'critical'
+                            ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                            : wp.severity === 'high'
+                            ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                            : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                        }`}>
+                          {wp.severity}
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-slate-400 mt-1 line-clamp-2 leading-tight">
+                        {wp.evidence}
+                      </p>
+                      <div className="mt-1 flex items-center justify-between text-[9px] text-cyan-400/90 font-medium">
+                        <span className="truncate max-w-[170px]">Fix: {wp.solution.slice(0, 35)}...</span>
+                        <span className="underline group-hover:text-cyan-300 shrink-0">Target →</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : selectedLead?.website ? (
+              <p className="text-[11px] text-slate-400 text-center py-2 bg-slate-950/50 rounded-xl border border-slate-800/80">
+                Click "Run Live Website Audit" to inspect {selectedLead.company}'s site for after-hours booking, AI chat, speed &amp; SEO weak points.
+              </p>
+            ) : null}
+          </div>
+
           {/* PROBLEM & SOLUTION STRATEGY CENTER */}
           <div className="bg-slate-900/90 rounded-2xl p-4 border border-cyan-500/30 space-y-3.5 shadow-xl backdrop-blur-sm">
             

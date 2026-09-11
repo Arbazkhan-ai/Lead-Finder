@@ -341,13 +341,36 @@ export function diagnoseLeadProblemSolution(lead = {}) {
 
   const industryData = INDUSTRY_KNOWLEDGE_BASE[matchedIndustryKey] || INDUSTRY_KNOWLEDGE_BASE.general;
   const anglesArray = Object.values(industryData.angles);
-  const primaryAngle = anglesArray[0]; // Speed-to-lead is usually #1 driver
+
+  // Check if lead has an audited website with concrete weak points
+  const audit = lead.websiteAudit || null;
+  const auditAngles = [];
+
+  if (audit && Array.isArray(audit.weakPoints) && audit.weakPoints.length > 0) {
+    for (const wp of audit.weakPoints.slice(0, 4)) {
+      auditAngles.push({
+        id: `audit_${wp.id}`,
+        name: `${wp.severity === 'critical' ? '🚨' : wp.severity === 'high' ? '⚠️' : '🔍'} Website Flaw: ${wp.title}`,
+        tag: wp.category.toUpperCase(),
+        problem: wp.pitchHook || `${wp.evidence} ${wp.businessImpact}`,
+        solution: wp.solution,
+        howWeHelp: `We implement, test, and launch this turnkey fix directly for ${lead.company || 'your team'} in 5-7 business days (${wp.roiImpact}).`,
+        weakPoint: wp
+      });
+    }
+  }
+
+  // Prioritize real website audit weak points if available
+  const allAngles = [...auditAngles, ...anglesArray];
+  const primaryAngle = auditAngles.length > 0 ? auditAngles[0] : anglesArray[0];
 
   return {
     industryKey: matchedIndustryKey,
     industryLabel: industryData.label,
     primaryAngle,
-    angles: anglesArray
+    angles: allAngles,
+    websiteAudit: audit,
+    hasWebsiteAudit: Boolean(audit && audit.weakPoints?.length > 0)
   };
 }
 
@@ -539,9 +562,15 @@ export function generateInitialOutreach({
   const portfolioUrl = aiConfig.portfolioUrl || 'https://arbazkhaan.vercel.app/';
   const bookingLink = aiConfig.bookingLink || 'https://arbazkhaan.vercel.app/#contact';
   const fromEmail = settings.smtp?.fromEmail || 'arbazkhanofficial@gmail.com';
-  const leadFirstName = (lead.name && !lead.name.includes('Owner') && !lead.name.includes('Principal') && !lead.name.includes('Decision Maker'))
-    ? lead.name.split(' ')[0]
-    : 'there';
+  let leadFirstName = 'there';
+  if (lead.name && !lead.name.includes('Owner') && !lead.name.includes('Principal') && !lead.name.includes('Decision Maker')) {
+    const parts = lead.name.trim().split(/\s+/);
+    if (/^(dr\.?|doctor|attorney|mr\.?|ms\.?|mrs\.?)/i.test(parts[0]) && parts.length > 1) {
+      leadFirstName = `${parts[0]} ${parts[parts.length - 1]}`;
+    } else {
+      leadFirstName = parts[0];
+    }
+  }
   const company = lead.company || 'your company';
   const category = lead.category || 'business';
 
@@ -559,21 +588,79 @@ export function generateInitialOutreach({
   const solution = customSolution || selectedAngle.solution;
   const howWeHelp = customHowWeHelp || selectedAngle.howWeHelp;
 
+  const audit = lead.websiteAudit || diagnosis.websiteAudit || null;
+  const cleanDomain = lead.website ? lead.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '') : '';
+
   // Extract short keywords for subject
   const problemSnippet = selectedAngle.tag ? selectedAngle.tag.toLowerCase() : 'intake';
-  const subjectOptions = generateSubjectOptions({
+  const defaultSubjectOptions = generateSubjectOptions({
     company,
     category,
     problemKeyword: problemSnippet,
     solutionKeyword: 'AI system'
   });
 
+  const auditSubjectOptions = [];
+  if (audit && audit.weakPoints?.length > 0) {
+    const topWp = audit.topWeakPoint || audit.weakPoints[0];
+    auditSubjectOptions.push(`3 conversion bottlenecks spotted on ${company}'s website`);
+    auditSubjectOptions.push(`Quick observation on ${cleanDomain || company} (${topWp.title.toLowerCase()})`);
+    auditSubjectOptions.push(`Noticeable leak on ${cleanDomain || company} costing prospective clients`);
+  }
+
+  const subjectOptions = [...auditSubjectOptions, ...defaultSubjectOptions];
   const subject = customSubject || subjectOptions[0];
 
   let body = '';
 
   // 3. Compose body based on selected Tone
   switch (tone) {
+    case 'website_audit': {
+      const weakPointsList = (audit && audit.weakPoints && audit.weakPoints.length > 0)
+        ? audit.weakPoints.slice(0, 3)
+        : null;
+
+      let weakPointsFormatted = '';
+      if (weakPointsList && weakPointsList.length > 0) {
+        weakPointsFormatted = weakPointsList.map((wp, i) => 
+          `${i + 1}. ❌ ${wp.title}\n   • Finding: ${wp.evidence}\n   • Impact: ${wp.businessImpact}`
+        ).join('\n\n');
+      } else {
+        weakPointsFormatted = `1. ❌ Conversion Leak: ${problem}`;
+      }
+
+      body = `Hi ${leadFirstName},
+
+I was researching leading ${category} providers in your market and took a few minutes to run a conversion and intake audit on ${company}'s website (${cleanDomain || 'your site'}).
+
+I noticed ${weakPointsList ? weakPointsList.length : 'a few'} key bottlenecks that are currently causing prospective clients to bounce to competitors:
+
+${weakPointsFormatted}
+
+THE FIX:
+💡 ${solution}
+
+HOW WE HELP & ROI:
+🚀 ${howWeHelp}
+
+We typically resolve and deploy these fixes in 5 to 7 business days with zero disruption to your existing tools. You can review some of our live deployed workflow architectures and case studies here:
+👉 ${portfolioUrl}
+
+I recorded a quick 2-minute video walkthrough showing exactly where prospective clients are dropping off on ${cleanDomain || 'your site'} and how to fix it without rebuilding your website.
+
+Would you be open to me emailing that video over, or would you prefer a quick 10-minute screen share this week?
+
+Direct booking calendar: ${bookingLink}
+
+Best regards,
+
+${senderName}
+${aiConfig.senderTitle || 'AI Engineer & Systems Architect'}
+${businessName}
+Direct: ${fromEmail}`;
+      break;
+    }
+
     case 'direct_roi':
       body = `Hi ${leadFirstName},
 
@@ -701,6 +788,7 @@ Email: ${fromEmail}`;
     solution,
     howWeHelp,
     diagnosis,
+    websiteAudit: audit,
     qualityScore,
     aiGenerated: true
   };

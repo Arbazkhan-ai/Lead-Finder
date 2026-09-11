@@ -37,7 +37,9 @@ export const api = {
     search: (searchParams) => request('/leads/search', { method: 'POST', body: searchParams }),
     scrapeDomain: (url) => request('/leads/scrape-domain', { method: 'POST', body: { url } }),
     bulkAdd: (leads) => request('/leads/bulk-add', { method: 'POST', body: { leads } }),
-    findEmail: (leadId, data = {}) => request('/leads/find-email', { method: 'POST', body: { leadId, ...data } })
+    findEmail: (leadId, data = {}) => request('/leads/find-email', { method: 'POST', body: { leadId, ...data } }),
+    auditWebsite: (leadId, url = null) => request(`/leads/${leadId}/audit-website`, { method: 'POST', body: { url } }),
+    auditUrl: (url) => request('/leads/audit-website', { method: 'POST', body: { url } })
   },
   outreach: {
     getThread: (leadId) => request(`/outreach/thread/${leadId}`),

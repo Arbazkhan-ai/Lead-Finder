@@ -1,6 +1,6 @@
 import express from 'express';
 import db from '../db.js';
-import { searchLeads, scrapeWebsite, findRealEmailForLead } from '../services/leadFinder.js';
+import { searchLeads, scrapeWebsite, findRealEmailForLead, auditWebsite } from '../services/leadFinder.js';
 
 const router = express.Router();
 
@@ -85,6 +85,51 @@ router.post('/scrape-domain', async (req, res) => {
     }
     const scraped = await scrapeWebsite(url);
     res.json({ success: true, data: scraped });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/leads/audit-website - Run technical & conversion weak points audit on any URL
+router.post('/audit-website', async (req, res) => {
+  try {
+    const { url } = req.body;
+    if (!url) {
+      return res.status(400).json({ success: false, error: 'URL is required' });
+    }
+    const audit = await auditWebsite(url);
+    res.json({ success: true, audit });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/leads/:id/audit-website - Run website audit for a specific lead and save results
+router.post('/:id/audit-website', async (req, res) => {
+  try {
+    const lead = db.getLeadById(req.params.id);
+    if (!lead) {
+      return res.status(404).json({ success: false, error: 'Lead not found' });
+    }
+
+    const websiteUrl = lead.website || req.body.url;
+    if (!websiteUrl) {
+      return res.status(400).json({ success: false, error: `No website URL recorded for ${lead.company}` });
+    }
+
+    const audit = await auditWebsite(websiteUrl);
+    const updatedLead = db.updateLead(lead.id, {
+      websiteAudit: audit,
+      website: lead.website || audit.url
+    });
+
+    db.logActivity('website_audited', `Audited website for ${lead.company} (Health Score: ${audit.score}/100, ${audit.weakPoints.length} weak points identified)`, {
+      leadId: lead.id,
+      score: audit.score,
+      weakPointsCount: audit.weakPoints.length
+    });
+
+    res.json({ success: true, lead: updatedLead, audit });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }

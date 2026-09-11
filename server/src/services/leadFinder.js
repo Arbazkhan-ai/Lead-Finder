@@ -2,6 +2,7 @@ import axios from 'axios';
 import * as cheerio from 'cheerio';
 import { URL } from 'url';
 import db from '../db.js';
+import { auditWebsite } from './websiteAuditor.js';
 
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
@@ -239,6 +240,12 @@ export async function scrapeWebsite(targetUrl) {
   const otherEmails = rawEmailList.filter(e => !domainMatching.includes(e));
   const finalEmails = [...domainMatching, ...otherEmails];
 
+  // Perform weak point audit on the target website
+  let websiteAudit = null;
+  try {
+    websiteAudit = await auditWebsite(normalizedUrl);
+  } catch (_) {}
+
   return {
     url: normalizedUrl,
     title: result.title,
@@ -247,7 +254,8 @@ export async function scrapeWebsite(targetUrl) {
     primaryEmail: finalEmails[0] || '', // ONLY real scraped email or empty
     phones: Array.from(result.phones),
     primaryPhone: Array.from(result.phones)[0] || '',
-    socials: result.socials
+    socials: result.socials,
+    websiteAudit
   };
 }
 
@@ -609,10 +617,10 @@ export async function searchLeads({ query, location, limit = 15 }) {
   const toProcess = rawLeads.slice(0, limit);
 
   const crawlPromises = toProcess.map(async (lead) => {
-    if (lead.website && !lead.email) {
+    if (lead.website) {
       try {
         const scraped = await scrapeWebsite(lead.website);
-        if (scraped.primaryEmail) {
+        if (scraped.primaryEmail && !lead.email) {
           lead.email = scraped.primaryEmail;
         }
         lead.phone = scraped.primaryPhone || lead.phone;
@@ -620,8 +628,11 @@ export async function searchLeads({ query, location, limit = 15 }) {
         if (scraped.socials?.linkedin) {
           lead.linkedinUrl = scraped.socials.linkedin;
         }
-        if (scraped.description) {
+        if (scraped.description && !lead.notes) {
           lead.notes = scraped.description;
+        }
+        if (scraped.websiteAudit) {
+          lead.websiteAudit = scraped.websiteAudit;
         }
       } catch (_) {}
     }
@@ -632,11 +643,14 @@ export async function searchLeads({ query, location, limit = 15 }) {
   return resolved;
 }
 
+export { auditWebsite };
+
 export default {
   cleanEmail,
   cleanPhone,
   scrapeWebsite,
   searchWebForEmail,
   findRealEmailForLead,
-  searchLeads
+  searchLeads,
+  auditWebsite
 };

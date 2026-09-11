@@ -167,11 +167,16 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
 
     try {
       let foundEmail = '';
+      let audit = null;
+
       if (lead.website) {
         try {
           const res = await api.leads.scrapeDomain(lead.website);
           if (res.data?.primaryEmail) {
             foundEmail = res.data.primaryEmail;
+          }
+          if (res.data?.websiteAudit) {
+            audit = res.data.websiteAudit;
           }
         } catch (_) {}
       }
@@ -192,6 +197,7 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
         copy[index] = {
           ...copy[index],
           email: foundEmail || copy[index].email,
+          websiteAudit: audit || copy[index].websiteAudit,
           scrapedDetails: true
         };
         return copy;
@@ -199,6 +205,8 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
 
       if (foundEmail) {
         setAddedSuccess(`Discovered verified email for ${lead.company}: ${foundEmail}`);
+      } else if (audit) {
+        setAddedSuccess(`Audited website for ${lead.company}: Score ${audit.score}/100 with ${audit.weakPoints.length} weak points!`);
       } else {
         alert(`No verified email found for ${lead.company}. You can still click "Draft & Solve Problem" to add one manually.`);
       }
@@ -242,7 +250,8 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
         website: scrapedData.url,
         notes: scrapedData.description || 'Deep website scan verified.',
         category: 'Website Scraped Prospect',
-        source: 'Deep URL Scanner'
+        source: 'Deep URL Scanner',
+        websiteAudit: scrapedData.websiteAudit || null
       });
 
       setAddedSuccess(`Saved "${companyName}" to pipeline! Opening AI Closer...`);
@@ -553,6 +562,33 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
                               <span className="text-slate-500 text-[11px]">No official site listed</span>
                             )}
 
+                            {/* Website Audit Badge if Available */}
+                            {lead.websiteAudit ? (
+                              <div className="flex items-center space-x-1.5 pt-0.5">
+                                <span className={`px-1.5 py-0.2 rounded text-[9px] font-black border ${
+                                  lead.websiteAudit.score >= 80 
+                                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                                    : lead.websiteAudit.score >= 60
+                                    ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                                    : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                                }`}>
+                                  Site: {lead.websiteAudit.score}%
+                                </span>
+                                <span className="text-[10px] text-slate-400 truncate max-w-[130px]" title={lead.websiteAudit.topWeakPoint?.title || 'Audit Complete'}>
+                                  • {lead.websiteAudit.weakPoints?.length || 0} Flaws Detected
+                                </span>
+                              </div>
+                            ) : lead.website ? (
+                              <button
+                                type="button"
+                                onClick={() => handleDeepScrapeRow(idx, lead)}
+                                disabled={isRowScraping}
+                                className="text-[10px] text-cyan-400 hover:text-cyan-300 underline font-semibold flex items-center space-x-1"
+                              >
+                                <span>Audit Site &amp; Email</span>
+                              </button>
+                            ) : null}
+
                             <div>
                               {lead.email ? (
                                 <span className="inline-flex items-center space-x-1 text-slate-200 font-mono text-[11px] px-2 py-0.5 rounded bg-slate-800 border border-cyan-500/30">
@@ -833,6 +869,61 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
                   <p className="text-xs text-slate-300 bg-slate-950 p-3 rounded-xl border border-slate-800">
                     {scrapedData.description}
                   </p>
+                </div>
+              )}
+
+              {/* Website Weak Points Audit */}
+              {scrapedData.websiteAudit && (
+                <div className="p-4 rounded-xl bg-slate-950 border border-indigo-500/30 space-y-3">
+                  <div className="flex items-center justify-between border-b border-slate-800 pb-2">
+                    <div className="flex items-center space-x-2">
+                      <Globe className="w-4 h-4 text-indigo-400" />
+                      <h4 className="text-xs font-bold text-white uppercase tracking-wider">
+                        Website Audit &amp; Weak Points Report
+                      </h4>
+                    </div>
+                    <span className={`px-2.5 py-0.5 rounded-full text-xs font-black border ${
+                      scrapedData.websiteAudit.score >= 80
+                        ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/30'
+                        : scrapedData.websiteAudit.score >= 60
+                        ? 'bg-amber-500/10 text-amber-400 border-amber-500/30'
+                        : 'bg-rose-500/10 text-rose-400 border-rose-500/30'
+                    }`}>
+                      Health Score: {scrapedData.websiteAudit.score}/100 ({scrapedData.websiteAudit.rating})
+                    </span>
+                  </div>
+
+                  <p className="text-xs text-slate-300">
+                    {scrapedData.websiteAudit.summary}
+                  </p>
+
+                  {scrapedData.websiteAudit.weakPoints && scrapedData.websiteAudit.weakPoints.length > 0 && (
+                    <div className="space-y-2 pt-1">
+                      <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block">
+                        Detected Vulnerabilities ({scrapedData.websiteAudit.weakPoints.length}):
+                      </span>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                        {scrapedData.websiteAudit.weakPoints.map(wp => (
+                          <div key={wp.id} className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 space-y-1">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-xs text-white line-clamp-1">{wp.title}</span>
+                              <span className={`text-[9px] font-black uppercase px-1.5 py-0.2 rounded ${
+                                wp.severity === 'critical'
+                                  ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
+                                  : wp.severity === 'high'
+                                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/30'
+                                  : 'bg-blue-500/20 text-blue-300 border border-blue-500/30'
+                              }`}>
+                                {wp.severity}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-slate-400 leading-tight">{wp.evidence}</p>
+                            <p className="text-[10px] text-emerald-400 font-medium pt-1">Fix: {wp.solution}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
 

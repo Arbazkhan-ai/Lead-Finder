@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, Globe, Mail, Phone, ExternalLink, Save, Trash2, DollarSign, AlertCircle, Zap, TrendingUp } from 'lucide-react';
+import { X, Globe, Mail, Phone, ExternalLink, Save, Trash2, DollarSign, AlertCircle, Zap, TrendingUp, Loader2, RefreshCw } from 'lucide-react';
 import api from '../api/client';
 
 export default function LeadDetailModal({ lead, isOpen, onClose, onLeadUpdated, onDeleteLead }) {
@@ -20,7 +20,35 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onLeadUpdated, 
     howWeHelp: lead.howWeHelp || ''
   });
 
+  const [websiteAudit, setWebsiteAudit] = useState(lead.websiteAudit || null);
+  const [isAuditing, setIsAuditing] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+
+  const handleAuditInModal = async () => {
+    if (!formData.website) return;
+    setIsAuditing(true);
+    try {
+      const res = await api.leads.auditWebsite(lead.id, formData.website);
+      if (res.audit) {
+        setWebsiteAudit(res.audit);
+        if (res.audit.topWeakPoint) {
+          setFormData(prev => ({
+            ...prev,
+            problem: prev.problem || res.audit.topWeakPoint.pitchHook,
+            solution: prev.solution || res.audit.topWeakPoint.solution,
+            howWeHelp: prev.howWeHelp || `Turnkey fix deployed in 5-7 business days (${res.audit.topWeakPoint.roiImpact}).`
+          }));
+        }
+      }
+      if (onLeadUpdated && res.lead) {
+        onLeadUpdated(res.lead);
+      }
+    } catch (err) {
+      alert('Website audit error: ' + err.message);
+    } finally {
+      setIsAuditing(false);
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -103,17 +131,39 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onLeadUpdated, 
           <div>
             <div className="flex items-center justify-between mb-1">
               <label className="text-slate-400 font-semibold">Website URL</label>
-              {formData.website && (
-                <a
-                  href={formData.website}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-cyan-400 hover:underline inline-flex items-center space-x-1"
-                >
-                  <span>Visit site</span>
-                  <ExternalLink className="w-3 h-3" />
-                </a>
-              )}
+              <div className="flex items-center space-x-2">
+                {formData.website && (
+                  <button
+                    type="button"
+                    onClick={handleAuditInModal}
+                    disabled={isAuditing}
+                    className="text-[11px] text-cyan-400 hover:text-cyan-300 underline font-bold flex items-center space-x-1"
+                  >
+                    {isAuditing ? (
+                      <>
+                        <Loader2 className="w-3 h-3 animate-spin" />
+                        <span>Auditing...</span>
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-3 h-3" />
+                        <span>{websiteAudit ? 'Re-scan Weak Points' : 'Audit Website'}</span>
+                      </>
+                    )}
+                  </button>
+                )}
+                {formData.website && (
+                  <a
+                    href={formData.website}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-slate-400 hover:text-slate-200 hover:underline inline-flex items-center space-x-1 text-[11px]"
+                  >
+                    <span>Visit</span>
+                    <ExternalLink className="w-3 h-3" />
+                  </a>
+                )}
+              </div>
             </div>
             <input
               type="text"
@@ -121,6 +171,28 @@ export default function LeadDetailModal({ lead, isOpen, onClose, onLeadUpdated, 
               onChange={(e) => setFormData({ ...formData, website: e.target.value })}
               className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white focus:border-cyan-400 focus:outline-none"
             />
+
+            {/* Audit findings badge */}
+            {websiteAudit && (
+              <div className="mt-2 p-2 rounded-xl bg-slate-950 border border-indigo-500/30 text-[11px] space-y-1">
+                <div className="flex items-center justify-between">
+                  <span className="font-bold text-white flex items-center space-x-1">
+                    <Globe className="w-3 h-3 text-indigo-400" />
+                    <span>Website Health Audit:</span>
+                  </span>
+                  <span className={`px-1.5 py-0.2 rounded font-black text-[10px] ${
+                    websiteAudit.score >= 80 ? 'text-emerald-400' : websiteAudit.score >= 60 ? 'text-amber-400' : 'text-rose-400'
+                  }`}>
+                    {websiteAudit.score}/100 ({websiteAudit.rating})
+                  </span>
+                </div>
+                {websiteAudit.topWeakPoint && (
+                  <p className="text-slate-300 text-[10px] leading-tight">
+                    <strong className="text-rose-400">Primary Bottleneck:</strong> {websiteAudit.topWeakPoint.title}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-3">
