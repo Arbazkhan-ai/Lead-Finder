@@ -52,7 +52,7 @@ export const api = {
     generatePitch: (leadId, options = {}) => request('/outreach/generate-pitch', { method: 'POST', body: { leadId, ...options } }),
     generateReply: (leadId, clientReplyText, problemSolutionAngle = null) => request('/outreach/generate-reply', { method: 'POST', body: { leadId, clientReplyText, problemSolutionAngle } }),
     simulateReply: (leadId, replyText, subject) => request('/outreach/simulate-reply', { method: 'POST', body: { leadId, replyText, subject } }),
-    autoSend: (leadId, toEmail) => request('/outreach/auto-send', { method: 'POST', body: { leadId, toEmail } }),
+    autoSend: (leadId, toEmail, extra = {}) => request('/outreach/auto-send', { method: 'POST', body: { leadId, toEmail, ...extra } }),
     autoReply: (leadId, clientReplyText) => request('/outreach/auto-reply', { method: 'POST', body: { leadId, clientReplyText } }),
     bulkAutoSend: (leads) => request('/outreach/bulk-auto-send', { method: 'POST', body: { leads } })
   },

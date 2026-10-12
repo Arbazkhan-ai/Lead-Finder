@@ -60,12 +60,12 @@ router.post('/diagnose-lead', (req, res) => {
 // POST /api/outreach/send - Send outbound email to lead
 router.post('/send', async (req, res) => {
   try {
-    const { leadId, subject, body, aiGenerated = false, toEmail = null } = req.body;
+    const { leadId, subject, body, aiGenerated = false, toEmail = null, ccEmails = [] } = req.body;
     if (!leadId || !body) {
       return res.status(400).json({ success: false, error: 'leadId and body are required' });
     }
 
-    const email = await sendEmail({ leadId, subject, body, aiGenerated, toEmail });
+    const email = await sendEmail({ leadId, subject, body, aiGenerated, toEmail, ccEmails });
     const updatedLead = db.getLeadById(leadId);
     res.json({ success: true, email, lead: updatedLead });
   } catch (err) {
@@ -150,12 +150,12 @@ router.post('/simulate-reply', async (req, res) => {
 // POST /api/outreach/auto-send - 1-Click autonomous pitch generation & send without asking
 router.post('/auto-send', async (req, res) => {
   try {
-    const { leadId, toEmail } = req.body;
+    const { leadId, toEmail, tone = null, ccAllEmails = false } = req.body;
     if (!leadId) {
       return res.status(400).json({ success: false, error: 'leadId is required' });
     }
 
-    const result = await autoSendOutreach({ leadId, toEmail });
+    const result = await autoSendOutreach({ leadId, toEmail, tone, ccAllEmails });
     res.json({
       success: true,
       email: result.email,

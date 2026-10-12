@@ -25,9 +25,95 @@ function getTransporter() {
 }
 
 /**
- * Send outbound email to a lead with strict validation & clear error feedback
+ * Escape HTML special characters safely
  */
-export async function sendEmail({ leadId, subject, body, aiGenerated = false, toEmail = null }) {
+function escapeHtml(str = '') {
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+/**
+ * Convert plain-text outreach body into a clean, high-deliverability HTML email with clickable links & executive signature CTA
+ */
+export function buildHtmlEmail({ body = '', senderName = 'Arbaz Khan', senderTitle = 'AI Engineer & Systems Architect', businessName = 'Arbaz Khan — AI Systems & Engineering', senderEmail = 'arbazkhanofficial@gmail.com', portfolioUrl = 'https://arbazkhaan.vercel.app/', bookingLink = 'https://arbazkhaan.vercel.app/#contact' }) {
+  const lines = String(body || '').split('\n');
+  const htmlBlocks = [];
+
+  for (const rawLine of lines) {
+    const trimmed = rawLine.trim();
+    if (!trimmed) {
+      htmlBlocks.push('<div style="height: 10px;"></div>');
+      continue;
+    }
+
+    // Highlight section headers like THE PROBLEM:, THE SOLUTION:, HOW WE HELP & ROI:, THE FIX:
+    if (/^(THE PROBLEM|THE SOLUTION|THE FIX|HOW WE HELP.*|KEY BOTTLENECKS.*):$/i.test(trimmed)) {
+      htmlBlocks.push(
+        `<div style="margin-top:14px;margin-bottom:4px;font-size:11px;font-weight:800;letter-spacing:0.08em;text-transform:uppercase;color:#0284c7;">${escapeHtml(trimmed)}</div>`
+      );
+      continue;
+    }
+
+    // Format numbered/bulleted findings or callouts
+    let escaped = escapeHtml(rawLine);
+    // Auto-link URLs
+    escaped = escaped.replace(
+      /(https?:\/\/[^\s<)]+)/gi,
+      (url) => `<a href="${url}" target="_blank" style="color:#0284c7;font-weight:600;text-decoration:underline;">${url}</a>`
+    );
+
+    if (/^(\d+\.\s*❌|⚠️|💡|🚀|👉|📅|•|-)/.test(trimmed)) {
+      htmlBlocks.push(
+        `<div style="padding:6px 12px;margin:4px 0;background:#f8fafc;border-left:3px solid #0ea5e9;border-radius:4px;font-size:14px;line-height:1.55;color:#0f172a;">${escaped}</div>`
+      );
+    } else {
+      htmlBlocks.push(
+        `<p style="margin:0 0 6px 0;font-size:14.5px;line-height:1.6;color:#1e293b;">${escaped}</p>`
+      );
+    }
+  }
+
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+</head>
+<body style="margin:0;padding:20px;background-color:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#1e293b;">
+  <div style="max-width:620px;margin:0 auto;">
+    ${htmlBlocks.join('\n')}
+    <div style="margin-top:22px;padding-top:16px;border-top:1px solid #e2e8f0;">
+      <table cellpadding="0" cellspacing="0" border="0" style="border-collapse:collapse;">
+        <tr>
+          <td style="padding-right:12px;">
+            <a href="${bookingLink}" target="_blank" style="display:inline-block;padding:10px 18px;background:linear-gradient(135deg,#0284c7,#2563eb);color:#ffffff;font-size:13px;font-weight:700;text-decoration:none;border-radius:8px;">
+              📅 Book a 10-Min Walkthrough
+            </a>
+          </td>
+          <td>
+            <a href="${portfolioUrl}" target="_blank" style="display:inline-block;padding:10px 16px;background:#f1f5f9;color:#0f172a;font-size:13px;font-weight:600;text-decoration:none;border-radius:8px;border:1px solid #cbd5e1;">
+              🌐 View AI Portfolio &amp; Case Studies
+            </a>
+          </td>
+        </tr>
+      </table>
+      <div style="margin-top:12px;font-size:12px;color:#64748b;">
+        <strong style="color:#0f172a;">${escapeHtml(senderName)}</strong> • ${escapeHtml(senderTitle)}<br/>
+        <span>${escapeHtml(businessName)}</span> • <a href="mailto:${escapeHtml(senderEmail)}" style="color:#0284c7;text-decoration:none;">${escapeHtml(senderEmail)}</a>
+      </div>
+    </div>
+  </div>
+</body>
+</html>`;
+}
+
+/**
+ * Send outbound email to a lead with strict validation, multi-recipient CC support, and dual HTML + Plain-Text delivery
+ */
+export async function sendEmail({ leadId, subject, body, aiGenerated = false, toEmail = null, ccEmails = [] }) {
   const lead = db.getLeadById(leadId);
   if (!lead) {
     throw new Error(`Lead with ID ${leadId} not found`);
@@ -35,6 +121,7 @@ export async function sendEmail({ leadId, subject, body, aiGenerated = false, to
 
   const settings = db.getSettings();
   const smtp = settings.smtp || {};
+  const aiConfig = settings.ai || {};
 
   // Resolve target email
   const targetEmail = (toEmail || lead.email || '').trim();
@@ -48,16 +135,31 @@ export async function sendEmail({ leadId, subject, body, aiGenerated = false, to
     throw new Error(`Invalid email address format: "${targetEmail}". Please verify the address before sending.`);
   }
 
+  // Validate optional CC emails
+  const validCcList = Array.isArray(ccEmails)
+    ? ccEmails.map(e => String(e || '').trim()).filter(e => e && e !== targetEmail && validEmailRegex.test(e))
+    : [];
+
   // If toEmail was specified and differs from lead's existing email, update lead record
   if (targetEmail !== lead.email) {
     db.updateLead(lead.id, { email: targetEmail });
     lead.email = targetEmail;
   }
 
-  const senderName = smtp.fromName || 'Arbaz Khan';
+  const senderName = smtp.fromName || aiConfig.senderName || 'Arbaz Khan';
   const senderEmail = smtp.fromEmail || smtp.user || 'arbazkhanofficial@gmail.com';
   const fromHeader = `"${senderName}" <${senderEmail}>`;
-  const toHeader = targetEmail;
+  const toHeader = validCcList.length > 0 ? `${targetEmail} (CC: ${validCcList.join(', ')})` : targetEmail;
+
+  const htmlBody = buildHtmlEmail({
+    body,
+    senderName,
+    senderTitle: aiConfig.senderTitle || 'AI Engineer & Systems Architect',
+    businessName: aiConfig.businessName || 'Arbaz Khan — AI Systems & Engineering',
+    senderEmail,
+    portfolioUrl: aiConfig.portfolioUrl || 'https://arbazkhaan.vercel.app/',
+    bookingLink: aiConfig.bookingLink || 'https://arbazkhaan.vercel.app/#contact'
+  });
 
   let sendStatus = 'sent';
 
@@ -68,10 +170,13 @@ export async function sendEmail({ leadId, subject, body, aiGenerated = false, to
         await mailClient.sendMail({
           from: fromHeader,
           to: targetEmail,
+          cc: validCcList.length > 0 ? validCcList.join(', ') : undefined,
+          replyTo: senderEmail,
           // BCC yourself so the email shows directly in your Gmail Inbox as well as Sent Mail
           bcc: senderEmail,
           subject: subject,
-          text: body
+          text: body,
+          html: htmlBody
         });
       }
     } catch (err) {
@@ -160,6 +265,7 @@ export async function receiveInboundEmail({ leadId, replyText, subject = null })
     });
 
     const smtp = settings.smtp || {};
+    const aiConfig = settings.ai || {};
     // Dispatch via SMTP if live mode enabled
     if (!smtp.simulatedMode && smtp.user && smtp.pass && lead.email) {
       try {
@@ -168,9 +274,19 @@ export async function receiveInboundEmail({ leadId, replyText, subject = null })
           await mailClient.sendMail({
             from: myAddress,
             to: lead.email,
+            replyTo: senderEmail,
             bcc: senderEmail,
             subject: aiResponse.subject,
-            text: aiResponse.body
+            text: aiResponse.body,
+            html: buildHtmlEmail({
+              body: aiResponse.body,
+              senderName: smtp.fromName || aiConfig.senderName || 'Arbaz Khan',
+              senderTitle: aiConfig.senderTitle || 'AI Engineer & Systems Architect',
+              businessName: aiConfig.businessName || 'Arbaz Khan — AI Systems & Engineering',
+              senderEmail,
+              portfolioUrl: aiConfig.portfolioUrl || 'https://arbazkhaan.vercel.app/',
+              bookingLink: aiConfig.bookingLink || 'https://arbazkhaan.vercel.app/#contact'
+            })
           });
         }
       } catch (err) {
@@ -220,14 +336,14 @@ export async function receiveInboundEmail({ leadId, replyText, subject = null })
  * Autonomous 1-Click Auto-Send:
  * Dispatches only to real, verified emails. Never invents fake domains.
  */
-export async function autoSendOutreach({ leadId, toEmail = null, skipEmailHunt = false }) {
+export async function autoSendOutreach({ leadId, toEmail = null, skipEmailHunt = false, tone = null, ccAllEmails = false }) {
   let lead = db.getLeadById(leadId);
   if (!lead) {
     throw new Error(`Lead with ID ${leadId} not found`);
   }
 
   // Auto-resolve recipient email
-  let targetEmail = (toEmail || lead.email || '').trim();
+  let targetEmail = (toEmail || lead.email || (Array.isArray(lead.allEmails) && lead.allEmails[0]) || '').trim();
   if (!targetEmail && !skipEmailHunt && (lead.website || lead.company)) {
     try {
       const found = await findRealEmailForLead({ company: lead.company, website: lead.website });
@@ -244,8 +360,15 @@ export async function autoSendOutreach({ leadId, toEmail = null, skipEmailHunt =
     throw new Error(`No verified email found for "${lead.company}". Please enter their email or click "Find Real Email" to discover one.`);
   }
 
-  // Auto-generate tailored pitch based on business name, niche & website
-  const pitch = generateInitialOutreach({ lead });
+  // Choose the highest-converting tone automatically if not specified
+  const bestTone = tone || (lead.websiteAudit?.weakPoints?.length > 0 ? 'website_audit' : 'problem_solution');
+
+  // Auto-generate tailored pitch based on business name, niche, socials & website audit
+  const pitch = generateInitialOutreach({ lead, tone: bestTone });
+
+  const ccList = ccAllEmails && Array.isArray(lead.allEmails)
+    ? lead.allEmails.filter(e => e && e !== targetEmail)
+    : [];
 
   // Send email
   const emailRecord = await sendEmail({
@@ -253,7 +376,8 @@ export async function autoSendOutreach({ leadId, toEmail = null, skipEmailHunt =
     subject: pitch.subject,
     body: pitch.body,
     aiGenerated: true,
-    toEmail: targetEmail
+    toEmail: targetEmail,
+    ccEmails: ccList
   });
 
   // Update lead status to contacted

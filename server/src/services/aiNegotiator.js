@@ -590,6 +590,14 @@ export function generateInitialOutreach({
 
   const audit = lead.websiteAudit || diagnosis.websiteAudit || null;
   const cleanDomain = lead.website ? lead.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '') : '';
+  const detectedTech = Array.isArray(lead.techStack) && lead.techStack.length > 0 ? lead.techStack.slice(0, 2).join(' / ') : '';
+  const hasSocials = Boolean(lead.socials?.instagram || lead.socials?.facebook || lead.socials?.linkedin);
+  const socialChannelsList = [
+    lead.socials?.instagram ? 'Instagram' : null,
+    lead.socials?.facebook ? 'Facebook' : null,
+    lead.socials?.linkedin ? 'LinkedIn' : null,
+    cleanDomain ? `Website (${cleanDomain})` : 'Website'
+  ].filter(Boolean).join(', ');
 
   // Extract short keywords for subject
   const problemSnippet = selectedAngle.tag ? selectedAngle.tag.toLowerCase() : 'intake';
@@ -603,12 +611,22 @@ export function generateInitialOutreach({
   const auditSubjectOptions = [];
   if (audit && audit.weakPoints?.length > 0) {
     const topWp = audit.topWeakPoint || audit.weakPoints[0];
-    auditSubjectOptions.push(`3 conversion bottlenecks spotted on ${company}'s website`);
     auditSubjectOptions.push(`Quick observation on ${cleanDomain || company} (${topWp.title.toLowerCase()})`);
+    auditSubjectOptions.push(`3 conversion bottlenecks spotted on ${company}'s website`);
     auditSubjectOptions.push(`Noticeable leak on ${cleanDomain || company} costing prospective clients`);
   }
 
-  const subjectOptions = [...auditSubjectOptions, ...defaultSubjectOptions];
+  const sequenceSubjects = {
+    social_omnichannel: `Connecting ${company}'s ${hasSocials ? 'Instagram/Facebook & ' : ''}website inquiries automatically`,
+    followup_1: `Re: Quick question regarding ${problemSnippet} at ${company}`,
+    followup_2: `Built a quick AI intake prototype for ${company} (closing the loop)`
+  };
+
+  const subjectOptions = [
+    ...(sequenceSubjects[tone] ? [sequenceSubjects[tone]] : []),
+    ...auditSubjectOptions,
+    ...defaultSubjectOptions
+  ];
   const subject = customSubject || subjectOptions[0];
 
   let body = '';
@@ -629,11 +647,13 @@ export function generateInitialOutreach({
         weakPointsFormatted = `1. ❌ Conversion Leak: ${problem}`;
       }
 
+      const techNote = detectedTech ? ` (running on ${detectedTech})` : '';
+
       body = `Hi ${leadFirstName},
 
-I was researching leading ${category} providers in your market and took a few minutes to run a conversion and intake audit on ${company}'s website (${cleanDomain || 'your site'}).
+I was researching leading ${category} providers${lead.address ? ` in ${lead.address}` : ''} and took a few minutes to run a conversion and intake audit on ${company}'s website (${cleanDomain || 'your site'})${techNote}.
 
-I noticed ${weakPointsList ? weakPointsList.length : 'a few'} key bottlenecks that are currently causing prospective clients to bounce to competitors:
+I noticed ${weakPointsList ? weakPointsList.length : 'a few'} specific bottlenecks that are currently causing prospective clients to bounce to competitors:
 
 ${weakPointsFormatted}
 
@@ -643,12 +663,12 @@ THE FIX:
 HOW WE HELP & ROI:
 🚀 ${howWeHelp}
 
-We typically resolve and deploy these fixes in 5 to 7 business days with zero disruption to your existing tools. You can review some of our live deployed workflow architectures and case studies here:
+We typically resolve and deploy these fixes in 5 to 7 business days with zero disruption to your existing setup. You can review some of our live deployed workflow architectures and case studies here:
 👉 ${portfolioUrl}
 
-I recorded a quick 2-minute video walkthrough showing exactly where prospective clients are dropping off on ${cleanDomain || 'your site'} and how to fix it without rebuilding your website.
+I recorded a quick 2-minute walkthrough showing exactly where prospective clients are dropping off on ${cleanDomain || 'your site'} and how to fix it without rebuilding your website.
 
-Would you be open to me emailing that video over, or would you prefer a quick 10-minute screen share this week?
+Would you be open to me sending that walkthrough over, or would you prefer a quick 10-minute screen share this week?
 
 Direct booking calendar: ${bookingLink}
 
@@ -661,23 +681,92 @@ Direct: ${fromEmail}`;
       break;
     }
 
+    case 'social_omnichannel':
+      body = `Hi ${leadFirstName},
+
+I came across ${company} across ${socialChannelsList} and noticed how active your brand is in ${category}.
+
+One major leak we see for growing ${category} teams is that prospects message across multiple channels—website forms, Instagram DMs, Facebook pages, and after-hours calls—and when responses take more than 15 minutes, over 40% move on to another provider.
+
+THE PROBLEM:
+⚠️ ${problem}
+
+THE OMNICHANNEL SOLUTION:
+💡 We deploy a unified 24/7 AI Concierge across your Website, Instagram DMs, Facebook Messenger, and SMS that answers prospect questions in under 15 seconds, qualifies their needs, and books appointments directly onto your calendar.
+
+HOW WE HELP:
+🚀 ${howWeHelp}
+
+Would you be open to a quick 10-minute demo this week to see how this works live for ${company}?
+
+📅 Book a 10-min slot: ${bookingLink}
+🌐 Live Portfolio & Architectures: ${portfolioUrl}
+
+Best regards,
+
+${senderName}
+${aiConfig.senderTitle || 'AI Engineer & Systems Architect'}
+${businessName}
+Direct: ${fromEmail}`;
+      break;
+
+    case 'followup_1':
+      body = `Hi ${leadFirstName},
+
+Floating this back to the top of your inbox in case it got buried during a busy week at ${company}.
+
+We recently helped a similar ${category} team eliminate slow lead follow-ups and recover missed after-hours inquiries within their first 10 days using:
+💡 ${solution}
+
+I put together a 2-minute custom architecture diagram for ${company} (${cleanDomain || 'your team'}) showing how this plugs into your current workflow with zero manual effort from your staff.
+
+Worth a quick 5-minute look this week, or should I email the diagram over directly?
+
+📅 Direct calendar: ${bookingLink}
+
+Best regards,
+${senderName}
+${portfolioUrl}`;
+      break;
+
+    case 'followup_2':
+      body = `Hi ${leadFirstName},
+
+I know things move fast at ${company}, so this will be my last note on this!
+
+Before I close out your file, I went ahead and configured a live, interactive AI intake & qualification prototype tailored specifically for ${company}'s ${category} services so you can test how it handles real client inquiries 24/7.
+
+There is zero cost or obligation—just reply "SEND" and I'll share the private test link, or grab a 10-minute slot on my calendar anytime if you ever want to explore automating client intake down the road:
+👉 ${bookingLink}
+
+Wishing you and the ${company} team a great quarter ahead!
+
+Best regards,
+
+${senderName}
+${aiConfig.senderTitle || 'AI Engineer & Systems Architect'}
+${businessName}
+${portfolioUrl}`;
+      break;
+
     case 'direct_roi':
       body = `Hi ${leadFirstName},
 
-I was reviewing ${company}'s online presence (${lead.website ? lead.website.replace(/^https?:\/\/(www\.)?/, '') : 'website'}) and noticed a critical opportunity:
+I was reviewing ${company}'s online presence (${cleanDomain || 'website'}) and noticed a high-leverage revenue opportunity:
 
 THE PROBLEM:
-${problem}
+⚠️ ${problem}
 
 THE SOLUTION:
-${solution}
+💡 ${solution}
 
 HOW WE HELP & ROI:
-${howWeHelp}
+🚀 ${howWeHelp}
 
-We typically deliver this within 7 days with measurable ROI from week one.
+We typically deliver this turnkey system within 5–7 business days with measurable ROI from week one.
 
-Would you be open to a quick 10-minute walk-through this week? You can pick a convenient slot here: ${bookingLink}
+Would you be open to a quick 10-minute walkthrough this week? You can pick a convenient slot here:
+📅 ${bookingLink}
 
 Best regards,
 
@@ -693,19 +782,19 @@ Direct: ${fromEmail}`;
 
 I came across ${company}'s work in ${category} and wanted to reach out with a quick observation.
 
-Many teams in your space face this exact challenge:
-"${problem}"
+Many teams in your space face this exact bottleneck:
+⚠️ "${problem}"
 
 The most reliable way forward is:
-"${solution}"
+💡 "${solution}"
 
 Specifically, how we help:
-"${howWeHelp}"
+🚀 "${howWeHelp}"
 
-Rather than pitching you, I'd love to prepare a complimentary 2-page AI Feasibility & Bottleneck Audit specifically for ${company}, showing exactly what parts of your workflow can be automated to save hours and recover lost inquiries.
+Rather than pitching you cold, I'd love to send over a complimentary 2-page AI Feasibility & Conversion Audit prepared specifically for ${company}, showing exactly which parts of your intake workflow can be automated to save hours and recover lost inquiries.
 
-No cost or obligation—would it make sense to send that over once it's ready, or would you prefer a quick 10-minute screen share?
-Direct Calendar: ${bookingLink}
+No cost or obligation—would it make sense to send that over today, or would you prefer a quick 10-minute screen share?
+📅 Direct Calendar: ${bookingLink}
 
 Best regards,
 
@@ -717,18 +806,18 @@ Case Studies & Live Models: ${portfolioUrl}`;
     case 'short_casual':
       body = `Hi ${leadFirstName},
 
-Quick question—are you currently looking at ways to automate client intake and repetitive follow-ups for ${company}?
+Quick question—are you currently exploring ways to automate 24/7 client intake and follow-ups for ${company}?
 
-We recently built an AI workflow for a similar ${category} business that solves this exact issue:
+We recently built a turnkey AI workflow for a similar ${category} business that solves this exact issue:
 👉 ${problem}
 
 By deploying:
-👉 ${solution}
+💡 ${solution}
 
-We handle the full setup end-to-end (${howWeHelp}).
+We handle the entire setup end-to-end (${howWeHelp}).
 
-Would you be open to a 5-minute look at how this works in practice?
-Here's my direct calendar if so: ${bookingLink}
+Open to a 5-minute look at how this works in practice?
+📅 Direct calendar: ${bookingLink}
 
 Best,
 ${senderName}
@@ -739,9 +828,9 @@ ${portfolioUrl}`;
     default:
       body = `Hi ${leadFirstName},
 
-I came across ${company} (${lead.website || 'your website'}) while researching leading businesses in ${category} and wanted to reach out directly.
+I came across ${company} (${cleanDomain || 'your website'}) while researching leading businesses in ${category}${lead.address ? ` around ${lead.address}` : ''} and wanted to reach out directly.
 
-A common challenge we see affecting companies in your sector is:
+A common bottleneck we see affecting companies in your sector is:
 ⚠️ ${problem}
 
 The most effective way modern teams are solving this is:
@@ -755,7 +844,7 @@ You can review some of my recent deployed AI models, automated workflow architec
 
 Would you be open to a quick 10-minute intro call or a free architectural audit this week to see if this makes sense for ${company}?
 
-Schedule directly: ${bookingLink}
+📅 Schedule directly: ${bookingLink}
 
 Best regards,
 
@@ -768,14 +857,14 @@ Email: ${fromEmail}`;
 
   // Calculate deliverability & quality metrics
   const words = body.trim().split(/\s+/).length;
-  const readingTimeSeconds = Math.max(15, Math.round((words / 200) * 60));
+  const readingTimeSeconds = Math.max(12, Math.round((words / 200) * 60));
   const qualityScore = {
     wordCount: words,
     readingTimeSeconds,
-    deliverabilityScore: 98,
+    deliverabilityScore: words <= 220 ? 99 : 96,
     spamRisk: words > 300 ? 'Moderate' : 'Low',
     ctaClarity: 'High',
-    personalizationRating: 'High (Niche & Problem Targeted)'
+    personalizationRating: audit?.weakPoints?.length ? 'Ultra-High (Live Website Audit)' : 'High (Niche & Problem Targeted)'
   };
 
   return {

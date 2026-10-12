@@ -27,6 +27,7 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
 
   // Composer fields & options
   const [recipientEmail, setRecipientEmail] = useState(initialLead?.email || '');
+  const [ccAllEmails, setCcAllEmails] = useState(false);
   const [subject, setSubject] = useState('');
   const [subjectOptions, setSubjectOptions] = useState([]);
   const [body, setBody] = useState('');
@@ -42,8 +43,9 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
   const [isSearchingEmail, setIsSearchingEmail] = useState(false);
   const [emailSearchMessage, setEmailSearchMessage] = useState('');
 
-  // Quick Scraper File Upload inside AI Closer Hub
+  // Quick Scraper File Upload & Bulk Uncontacted Send inside AI Closer Hub
   const [isUploadingHubFile, setIsUploadingHubFile] = useState(false);
+  const [isBulkSendingUncontacted, setIsBulkSendingUncontacted] = useState(false);
   const [hubUploadMsg, setHubUploadMsg] = useState('');
 
   // Simulation Sandbox
@@ -258,9 +260,14 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
 
     setIsSending(true);
     try {
+      const extraCc = ccAllEmails && Array.isArray(selectedLead.allEmails)
+        ? selectedLead.allEmails.filter(em => em && em !== recipientEmail.trim())
+        : [];
+
       const res = await api.outreach.sendEmail({
         leadId: selectedLead.id,
         toEmail: recipientEmail.trim(),
+        ccEmails: extraCc,
         subject: subject || `Regarding ${selectedLead.company}`,
         body: body,
         aiGenerated: false
@@ -285,7 +292,10 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
     try {
       let res;
       if (thread.length === 0) {
-        res = await api.outreach.autoSend(selectedLead.id, recipientEmail.trim() || null);
+        res = await api.outreach.autoSend(selectedLead.id, recipientEmail.trim() || null, {
+          tone,
+          ccAllEmails
+        });
       } else {
         const lastInbound = [...thread].reverse().find(e => e.direction === 'inbound');
         res = await api.outreach.autoReply(selectedLead.id, lastInbound ? lastInbound.body : null);
@@ -297,7 +307,7 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
         setRecipientEmail(res.lead.email);
       }
       if (onLeadUpdated) onLeadUpdated(res.lead);
-      setAutoSendSuccessMsg(`⚡ Auto-Sent successfully to ${res.lead.company}!`);
+      setAutoSendSuccessMsg(`⚡ Auto-Sent HTML + Plain-Text email to ${res.lead.company}!`);
       setTimeout(() => setAutoSendSuccessMsg(''), 4500);
       setBody('');
       setPreviewMode(false);
@@ -305,6 +315,27 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
       alert('Auto-Send error: ' + err.message);
     } finally {
       setIsAutoSending(false);
+    }
+  };
+
+  // 1-Click Bulk Auto-Send to all uncontacted leads that have an email
+  const handleBulkEmailUncontacted = async () => {
+    const uncontactedWithEmail = leads.filter(l => l.status === 'new' && l.email);
+    if (uncontactedWithEmail.length === 0) {
+      alert('No uncontacted ("new") leads with verified emails found in the list.');
+      return;
+    }
+    setIsBulkSendingUncontacted(true);
+    setHubUploadMsg('');
+    try {
+      const res = await api.outreach.bulkAutoSend(uncontactedWithEmail);
+      setHubUploadMsg(`⚡ Sent ${res.count} tailored emails to uncontacted leads!`);
+      if (selectedLead && onLeadUpdated) onLeadUpdated(selectedLead);
+      setTimeout(() => setHubUploadMsg(''), 6000);
+    } catch (err) {
+      alert('Bulk email failed: ' + err.message);
+    } finally {
+      setIsBulkSendingUncontacted(false);
     }
   };
 
@@ -507,6 +538,27 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
                 <span>⚡ Upload &amp; Email</span>
               </label>
             </div>
+
+            {/* 1-Click Email All Uncontacted Leads in Pipeline */}
+            <button
+              type="button"
+              disabled={isBulkSendingUncontacted}
+              onClick={handleBulkEmailUncontacted}
+              className="w-full py-1.5 px-2.5 rounded-xl bg-cyan-500/15 hover:bg-cyan-500/25 border border-cyan-500/30 text-cyan-300 text-[10px] font-extrabold flex items-center justify-center space-x-1.5 transition-all disabled:opacity-50"
+              title="Automatically generate and send personalized cold outreach to all uncontacted ('new') leads with verified emails"
+            >
+              {isBulkSendingUncontacted ? (
+                <>
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                  <span>Sending Bulk Outreach...</span>
+                </>
+              ) : (
+                <>
+                  <Sparkles className="w-3 h-3" />
+                  <span>⚡ Auto-Email All Uncontacted ({leads.filter(l => l.status === 'new' && l.email).length})</span>
+                </>
+              )}
+            </button>
 
             {hubUploadMsg && (
               <div className="p-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold flex items-center space-x-1.5">
@@ -784,25 +836,30 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
             
             {/* Header, Tone Selector & Controls */}
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
-              <div className="flex items-center space-x-2">
+              <div className="flex items-center space-x-2 shrink-0">
                 <Mail className="w-4 h-4 text-cyan-400" />
                 <span className="text-xs font-bold text-white uppercase tracking-wider">Email Composer</span>
+                <span className="px-1.5 py-0.5 rounded bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[9px] font-bold">
+                  HTML + Plain-Text
+                </span>
               </div>
               
-              <div className="flex flex-wrap items-center gap-1.5">
-                {/* Tone Pills */}
+              <div className="flex flex-wrap items-center gap-1">
+                {/* Tone & Sequence Pills */}
                 {[
-                  { id: 'website_audit', label: '🌐 Website Weak Points' },
-                  { id: 'problem_solution', label: '🎯 Problem & Solution' },
+                  { id: 'website_audit', label: '🌐 Website Flaws' },
+                  { id: 'problem_solution', label: '🎯 Problem & Fix' },
+                  { id: 'social_omnichannel', label: '📱 Social + Web AI' },
                   { id: 'direct_roi', label: '💼 Direct ROI' },
-                  { id: 'free_audit', label: '🔍 Free Audit' },
-                  { id: 'short_casual', label: '⚡ Short' }
+                  { id: 'short_casual', label: '⚡ Short' },
+                  { id: 'followup_1', label: '🔔 Follow-Up #1' },
+                  { id: 'followup_2', label: '🚀 Follow-Up #2' }
                 ].map(t => (
                   <button
                     key={t.id}
                     type="button"
                     onClick={() => handleToneChange(t.id)}
-                    className={`px-2.5 py-1 rounded-lg text-[10px] font-semibold transition-all ${
+                    className={`px-2 py-1 rounded-lg text-[10px] font-semibold transition-all ${
                       tone === t.id
                         ? 'bg-cyan-500 text-slate-950 font-bold shadow-sm shadow-cyan-500/30'
                         : 'bg-slate-900 text-slate-400 hover:text-slate-200 border border-slate-800'
@@ -845,7 +902,7 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
 
             <form onSubmit={handleSendEmail} className="space-y-2.5">
               
-              {/* TO Line */}
+              {/* TO Line + Multi-Email Selector Pills */}
               <div className="space-y-1">
                 <div className="flex items-center space-x-2 bg-slate-900/90 px-3 py-1.5 rounded-xl border border-slate-800">
                   <label className="text-[11px] font-bold text-slate-400 w-12 text-right shrink-0">To:</label>
@@ -887,6 +944,39 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
                     </span>
                   )}
                 </div>
+
+                {/* Discovered Multi-Emails Selector & CC Toggle */}
+                {Array.isArray(selectedLead?.allEmails) && selectedLead.allEmails.length > 1 && (
+                  <div className="flex flex-wrap items-center justify-between gap-2 pl-14 pr-2 pt-0.5">
+                    <div className="flex flex-wrap items-center gap-1">
+                      <span className="text-[10px] text-slate-500">All discovered ({selectedLead.allEmails.length}):</span>
+                      {selectedLead.allEmails.slice(0, 4).map((em, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setRecipientEmail(em)}
+                          className={`px-2 py-0.5 rounded text-[10px] font-mono border transition-colors ${
+                            recipientEmail === em
+                              ? 'bg-cyan-500/20 text-cyan-300 border-cyan-500/40 font-bold'
+                              : 'bg-slate-900 text-slate-400 border-slate-800 hover:text-slate-200'
+                          }`}
+                        >
+                          {em}
+                        </button>
+                      ))}
+                    </div>
+
+                    <label className="inline-flex items-center space-x-1.5 text-[10px] text-emerald-300 font-semibold cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={ccAllEmails}
+                        onChange={(e) => setCcAllEmails(e.target.checked)}
+                        className="rounded bg-slate-900 border-slate-700 text-emerald-500 focus:ring-0"
+                      />
+                      <span>CC all {selectedLead.allEmails.length} emails</span>
+                    </label>
+                  </div>
+                )}
 
                 {emailSearchMessage && (
                   <div className={`px-3 py-1 rounded-lg text-[10px] font-medium flex items-center space-x-1.5 ${
@@ -989,20 +1079,28 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
                     }`}
                   >
                     {previewMode ? <Edit3 className="w-3 h-3" /> : <Eye className="w-3 h-3" />}
-                    <span>{previewMode ? 'Edit Mode' : 'Preview Format'}</span>
+                    <span>{previewMode ? 'Edit Mode' : 'HTML Preview'}</span>
                   </button>
                 </div>
               </div>
 
-              {/* BODY Textarea or Formatted Preview */}
+              {/* BODY Textarea or Rich HTML Client Preview */}
               {previewMode ? (
-                <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-200 max-h-60 overflow-y-auto space-y-3 font-sans leading-relaxed shadow-inner">
-                  <div className="pb-2 border-b border-slate-800 text-[11px] text-slate-400 flex items-center justify-between">
-                    <span>Formatted Email Client Preview</span>
-                    <span className="text-cyan-400 font-mono">To: {recipientEmail}</span>
+                <div className="p-4 rounded-xl bg-white text-slate-900 border border-slate-300 text-xs max-h-64 overflow-y-auto space-y-3 font-sans leading-relaxed shadow-inner">
+                  <div className="pb-2 border-b border-slate-200 text-[11px] text-slate-500 flex items-center justify-between">
+                    <span className="font-bold text-slate-700">Live Gmail / Outlook HTML Preview</span>
+                    <span className="text-sky-600 font-mono">To: {recipientEmail || 'prospect@company.com'}</span>
                   </div>
-                  <div className="font-bold text-sm text-white">{subject}</div>
-                  <div className="whitespace-pre-wrap leading-relaxed">{body || 'No content drafted yet.'}</div>
+                  <div className="font-extrabold text-sm text-slate-900">{subject}</div>
+                  <div className="whitespace-pre-wrap leading-relaxed text-slate-800">{body || 'No content drafted yet.'}</div>
+                  <div className="pt-3 border-t border-slate-200 flex flex-wrap items-center gap-2">
+                    <span className="px-3 py-1.5 rounded-lg bg-sky-600 text-white font-bold text-[11px] inline-block">
+                      📅 Book a 10-Min Walkthrough
+                    </span>
+                    <span className="px-3 py-1.5 rounded-lg bg-slate-100 text-slate-800 border border-slate-300 font-semibold text-[11px] inline-block">
+                      🌐 View AI Portfolio &amp; Case Studies
+                    </span>
+                  </div>
                 </div>
               ) : (
                 <div className="relative">
@@ -1026,7 +1124,7 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
                   <span>•</span>
                   <span className="text-emerald-400 flex items-center space-x-1">
                     <ShieldCheck className="w-3 h-3" />
-                    <span>98% High Deliverability Score</span>
+                    <span>{bodyWords <= 220 ? '99%' : '96%'} Deliverability (HTML + Text)</span>
                   </span>
                 </div>
 
