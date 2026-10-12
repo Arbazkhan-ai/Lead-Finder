@@ -220,7 +220,7 @@ export async function receiveInboundEmail({ leadId, replyText, subject = null })
  * Autonomous 1-Click Auto-Send:
  * Dispatches only to real, verified emails. Never invents fake domains.
  */
-export async function autoSendOutreach({ leadId, toEmail = null }) {
+export async function autoSendOutreach({ leadId, toEmail = null, skipEmailHunt = false }) {
   let lead = db.getLeadById(leadId);
   if (!lead) {
     throw new Error(`Lead with ID ${leadId} not found`);
@@ -228,7 +228,7 @@ export async function autoSendOutreach({ leadId, toEmail = null }) {
 
   // Auto-resolve recipient email
   let targetEmail = (toEmail || lead.email || '').trim();
-  if (!targetEmail && (lead.website || lead.company)) {
+  if (!targetEmail && !skipEmailHunt && (lead.website || lead.company)) {
     try {
       const found = await findRealEmailForLead({ company: lead.company, website: lead.website });
       if (found.email) {
@@ -321,7 +321,7 @@ export async function autoSendReply({ leadId, clientReplyText = null }) {
 /**
  * Bulk Autonomous Outreach
  */
-export async function bulkAutoSendOutreach({ leads = [] }) {
+export async function bulkAutoSendOutreach({ leads = [], skipEmailHunt = false }) {
   const sentList = [];
   const errors = [];
 
@@ -333,10 +333,13 @@ export async function bulkAutoSendOutreach({ leads = [] }) {
         leadId = created.id;
       }
 
-      const res = await autoSendOutreach({ leadId, toEmail: item.email || null });
+      const res = await autoSendOutreach({
+        leadId,
+        toEmail: item.email || null,
+        skipEmailHunt: skipEmailHunt || leads.length > 10
+      });
       sentList.push(res);
     } catch (err) {
-      console.warn(`Bulk auto-send error for lead ${item.company || 'unknown'}:`, err.message);
       errors.push({ company: item.company, error: err.message });
     }
   }

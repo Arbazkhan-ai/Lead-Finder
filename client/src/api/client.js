@@ -39,7 +39,11 @@ export const api = {
     bulkAdd: (leads) => request('/leads/bulk-add', { method: 'POST', body: { leads } }),
     findEmail: (leadId, data = {}) => request('/leads/find-email', { method: 'POST', body: { leadId, ...data } }),
     auditWebsite: (leadId, url = null) => request(`/leads/${leadId}/audit-website`, { method: 'POST', body: { url } }),
-    auditUrl: (url) => request('/leads/audit-website', { method: 'POST', body: { url } })
+    auditUrl: (url) => request('/leads/audit-website', { method: 'POST', body: { url } }),
+    exportExcel: (data = {}) => request('/leads/export-excel', { method: 'POST', body: data }),
+    getExports: () => request('/leads/exports'),
+    uploadFile: (payload) => request('/leads/upload-file', { method: 'POST', body: payload }),
+    loadExportFile: (payload) => request('/leads/load-export', { method: 'POST', body: payload })
   },
   outreach: {
     getThread: (leadId) => request(`/outreach/thread/${leadId}`),

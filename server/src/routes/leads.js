@@ -1,6 +1,17 @@
 import express from 'express';
+import path from 'path';
+import fs from 'fs';
 import db from '../db.js';
 import { searchLeads, scrapeWebsite, findRealEmailForLead, auditWebsite } from '../services/leadFinder.js';
+import {
+  EXPORTS_DIR,
+  generateLeadsExcelFile,
+  generateSingleWebsiteExcelFile,
+  listExportedExcelFiles,
+  parseUploadedLeadsFile,
+  parseExcelFileFromVault
+} from '../services/excelExporter.js';
+import { bulkAutoSendOutreach, sendEmail } from '../services/emailService.js';
 
 const router = express.Router();
 
@@ -10,6 +21,52 @@ router.get('/', (req, res) => {
     const { status, search } = req.query;
     const leads = db.getLeads({ status, search });
     res.json({ success: true, leads });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/leads/exports - List all generated Excel (.xlsx) files
+router.get('/exports', (req, res) => {
+  try {
+    const files = listExportedExcelFiles();
+    res.json({ success: true, exportsDir: EXPORTS_DIR, files });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// GET /api/leads/exports/:fileName - Download a generated Excel (.xlsx) file
+router.get('/exports/:fileName', (req, res) => {
+  try {
+    const safeName = path.basename(req.params.fileName);
+    const fullPath = path.join(EXPORTS_DIR, safeName);
+    if (!fs.existsSync(fullPath)) {
+      return res.status(404).json({ success: false, error: 'Excel file not found' });
+    }
+    res.setHeader('Content-Type', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    res.setHeader('Content-Disposition', `attachment; filename="${safeName}"`);
+    return res.sendFile(fullPath);
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/leads/export-excel - Generate an Excel (.xlsx) file from provided leads or pipeline DB
+router.post('/export-excel', (req, res) => {
+  try {
+    const { leads, query = 'pipeline_export', location = '' } = req.body || {};
+    const targetLeads = Array.isArray(leads) && leads.length > 0 ? leads : db.getLeads({});
+    if (!targetLeads || targetLeads.length === 0) {
+      return res.status(400).json({ success: false, error: 'No leads available to export to Excel' });
+    }
+    const excelFile = generateLeadsExcelFile(targetLeads, { query, location });
+    db.logActivity('excel_exported', `Exported ${targetLeads.length} leads to Excel: ${excelFile.fileName}`, {
+      fileName: excelFile.fileName,
+      filePath: excelFile.filePath,
+      count: targetLeads.length
+    });
+    res.json({ success: true, excelFile });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -62,29 +119,71 @@ router.delete('/:id', (req, res) => {
   }
 });
 
-// POST /api/leads/search - Search prospective businesses by keyword & location
+// POST /api/leads/search - Search prospective businesses by keyword & location (Large dataset + Socials + auto Excel export)
 router.post('/search', async (req, res) => {
   try {
-    const { query, location, limit = 15 } = req.body;
+    const { query, location, limit = 100, platforms = ['websites', 'facebook', 'instagram', 'linkedin'] } = req.body;
     if (!query) {
       return res.status(400).json({ success: false, error: 'Query is required (e.g. "Dentists", "Marketing Agency")' });
     }
-    const results = await searchLeads({ query, location, limit });
-    res.json({ success: true, count: results.length, leads: results });
+    const results = await searchLeads({ query, location, limit, platforms });
+
+    // Automatically generate Excel (.xlsx) file whenever data is scraped
+    let excelFile = null;
+    if (results.length > 0) {
+      try {
+        excelFile = generateLeadsExcelFile(results, { query, location });
+        db.logActivity(
+          'leads_scraped_excel',
+          `Scraped ${results.length} leads for "${query}" in "${location || 'All'}" & created Excel file: ${excelFile.fileName}`,
+          {
+            count: results.length,
+            fileName: excelFile.fileName,
+            filePath: excelFile.filePath
+          }
+        );
+      } catch (excelErr) {
+        console.warn('Excel generation warning:', excelErr.message);
+      }
+    }
+
+    res.json({
+      success: true,
+      count: results.length,
+      leads: results,
+      excelFile
+    });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
 });
 
-// POST /api/leads/scrape-domain - Deep scrape a single website URL
+// POST /api/leads/scrape-domain - Deep scrape a single website URL + auto Excel export
 router.post('/scrape-domain', async (req, res) => {
   try {
     const { url } = req.body;
     if (!url) {
       return res.status(400).json({ success: false, error: 'URL is required' });
     }
-    const scraped = await scrapeWebsite(url);
-    res.json({ success: true, data: scraped });
+    const scraped = await scrapeWebsite(url, { maxSubpages: 6 });
+
+    let excelFile = null;
+    try {
+      excelFile = generateSingleWebsiteExcelFile(scraped);
+      db.logActivity(
+        'domain_scraped_excel',
+        `Deep scraped ${scraped.url} & saved Excel report: ${excelFile.fileName}`,
+        {
+          url: scraped.url,
+          fileName: excelFile.fileName,
+          filePath: excelFile.filePath
+        }
+      );
+    } catch (excelErr) {
+      console.warn('Single domain Excel warning:', excelErr.message);
+    }
+
+    res.json({ success: true, data: scraped, excelFile });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });
   }
@@ -183,4 +282,217 @@ router.post('/bulk-add', (req, res) => {
   }
 });
 
+/**
+ * Helper to process parsed leads from an uploaded file or vault file:
+ * optionally enriches missing emails, saves to pipeline, and optionally dispatches emails
+ */
+async function processUploadedLeadsList(parsedLeads, options = {}) {
+  const {
+    fileName = 'uploaded_leads.xlsx',
+    importToPipeline = true,
+    enrichMissingEmails = false,
+    autoSendAll = false,
+    customSubject = '',
+    customBody = ''
+  } = options;
+
+  // 1. Optional live email hunting for rows missing an email (capped at 15 concurrent/sequential to stay fast)
+  if (enrichMissingEmails) {
+    const missingRows = parsedLeads.filter(l => !l.email && (l.website || l.company)).slice(0, 15);
+    await Promise.allSettled(
+      missingRows.map(async (lead) => {
+        try {
+          const found = await findRealEmailForLead({ company: lead.company, website: lead.website });
+          if (found?.email) {
+            lead.email = found.email;
+            lead.allEmails = Array.from(new Set([found.email, ...(lead.allEmails || [])]));
+            lead.qualityScore = Math.max(lead.qualityScore || 70, 90);
+          }
+        } catch (_) {}
+      })
+    );
+  }
+
+  // 2. Save to pipeline DB so leads have persistent IDs for emailing & AI Closer Hub
+  let savedLeads = parsedLeads;
+  if (importToPipeline || autoSendAll) {
+    const newlyAdded = db.bulkAddLeads(parsedLeads);
+    // Match existing + newly added leads from DB so every uploaded row has an ID
+    const allDbLeads = db.getLeads({});
+    savedLeads = parsedLeads.map(p => {
+      const match = newlyAdded.find(n => (n.email && n.email === p.email) || n.company.toLowerCase() === p.company.toLowerCase())
+        || allDbLeads.find(d => (p.email && d.email === p.email) || d.company.toLowerCase() === p.company.toLowerCase());
+      if (match) {
+        // Ensure email is updated if the uploaded file had an email and the existing DB lead didn't
+        if (p.email && !match.email) {
+          return db.updateLead(match.id, { email: p.email }) || { ...match, email: p.email };
+        }
+        return { ...p, ...match, email: p.email || match.email };
+      }
+      const created = db.createLead(p);
+      return { ...p, ...created };
+    });
+  }
+
+  db.logActivity(
+    'scraper_file_uploaded',
+    `Uploaded scraper file "${fileName}" with ${savedLeads.length} leads (${savedLeads.filter(l => l.email).length} with verified emails)`,
+    { fileName, count: savedLeads.length }
+  );
+
+  // 3. Optional immediate email dispatch to all uploaded leads
+  let autoSendReport = null;
+  if (autoSendAll) {
+    const useCustomTemplate = Boolean(customSubject.trim() && customBody.trim());
+    if (useCustomTemplate) {
+      const sentList = [];
+      const errors = [];
+      for (const lead of savedLeads) {
+        try {
+          let targetEmail = lead.email;
+          if (!targetEmail && (lead.website || lead.company)) {
+            const found = await findRealEmailForLead({ company: lead.company, website: lead.website });
+            if (found?.email) {
+              targetEmail = found.email;
+              db.updateLead(lead.id, { email: targetEmail });
+              lead.email = targetEmail;
+            }
+          }
+          if (!targetEmail) {
+            errors.push({ company: lead.company, error: 'No email found for this lead' });
+            continue;
+          }
+
+          const firstName = (lead.name && !lead.name.toLowerCase().includes('owner') && !lead.name.toLowerCase().includes('decision'))
+            ? lead.name.split(' ')[0]
+            : 'there';
+
+          const replaceTags = (str) =>
+            str
+              .replace(/\{company\}/gi, lead.company || 'your team')
+              .replace(/\{firstName\}/gi, firstName)
+              .replace(/\{name\}/gi, lead.name || 'there')
+              .replace(/\{website\}/gi, lead.website || 'your website')
+              .replace(/\{category\}/gi, lead.category || 'your industry');
+
+          const finalSubject = replaceTags(customSubject);
+          const finalBody = replaceTags(customBody);
+
+          const emailRec = await sendEmail({
+            leadId: lead.id,
+            subject: finalSubject,
+            body: finalBody,
+            aiGenerated: false,
+            toEmail: targetEmail
+          });
+          db.updateLead(lead.id, { status: 'contacted', lastContactedAt: new Date().toISOString() });
+          lead.status = 'contacted';
+          sentList.push({ email: emailRec, lead });
+        } catch (err) {
+          errors.push({ company: lead.company, error: err.message });
+        }
+      }
+      autoSendReport = {
+        count: sentList.length,
+        sent: sentList,
+        errors
+      };
+    } else {
+      autoSendReport = await bulkAutoSendOutreach({ leads: savedLeads });
+    }
+  }
+
+  return {
+    fileName,
+    totalParsed: savedLeads.length,
+    withEmailCount: savedLeads.filter(l => Boolean(l.email)).length,
+    leads: savedLeads,
+    autoSendReport
+  };
+}
+
+// POST /api/leads/upload-file - Manually upload a scraped Excel (.xlsx/.xls) or CSV (.csv) file to import & email leads
+router.post('/upload-file', async (req, res) => {
+  try {
+    const {
+      fileName = 'uploaded_leads.xlsx',
+      fileDataBase64,
+      importToPipeline = true,
+      enrichMissingEmails = false,
+      autoSendAll = false,
+      customSubject = '',
+      customBody = ''
+    } = req.body || {};
+
+    if (!fileDataBase64) {
+      return res.status(400).json({ success: false, error: 'Please select an Excel (.xlsx/.xls) or CSV (.csv) file to upload' });
+    }
+
+    const parsedLeads = parseUploadedLeadsFile(fileDataBase64, fileName);
+    if (!parsedLeads || parsedLeads.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No valid lead rows found in the uploaded file. Ensure it has columns like Company Name, Email, or Website.'
+      });
+    }
+
+    const result = await processUploadedLeadsList(parsedLeads, {
+      fileName,
+      importToPipeline,
+      enrichMissingEmails,
+      autoSendAll,
+      customSubject,
+      customBody
+    });
+
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (err) {
+    console.error('Upload scraper file error:', err);
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/leads/load-export - Load a saved Excel file from the Vault to import & email leads
+router.post('/load-export', async (req, res) => {
+  try {
+    const {
+      fileName,
+      importToPipeline = true,
+      enrichMissingEmails = false,
+      autoSendAll = false,
+      customSubject = '',
+      customBody = ''
+    } = req.body || {};
+
+    if (!fileName) {
+      return res.status(400).json({ success: false, error: 'fileName is required' });
+    }
+
+    const parsedLeads = parseExcelFileFromVault(fileName);
+    if (!parsedLeads || parsedLeads.length === 0) {
+      return res.status(400).json({ success: false, error: 'No leads found in that Excel file' });
+    }
+
+    const result = await processUploadedLeadsList(parsedLeads, {
+      fileName,
+      importToPipeline,
+      enrichMissingEmails,
+      autoSendAll,
+      customSubject,
+      customBody
+    });
+
+    res.json({
+      success: true,
+      ...result
+    });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 export default router;
+

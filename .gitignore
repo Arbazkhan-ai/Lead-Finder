@@ -20,3 +20,7 @@ yarn-error.log*
 # System Files
 .DS_Store
 Thumbs.db
+
+# Generated Excel Exports
+exports/*.xlsx
+

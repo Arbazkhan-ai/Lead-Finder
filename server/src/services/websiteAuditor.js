@@ -85,9 +85,24 @@ export async function auditWebsite(targetUrl) {
   }
 
   const html = typeof response.data === 'string' ? response.data : '';
-  const $ = cheerio.load(html);
   const statusCode = response.status;
-  const headers = response.headers || {};
+
+  return auditWebsiteFromHtml({
+    url: normalizedUrl,
+    domain,
+    html,
+    statusCode,
+    isHttps: isHttps && !(response.request?.res?.responseUrl && !response.request.res.responseUrl.startsWith('https:')),
+    responseTimeMs
+  });
+}
+
+/**
+ * Analyze already-fetched HTML to detect website weak points without a duplicate network request
+ */
+export function auditWebsiteFromHtml({ url, domain, html = '', statusCode = 200, isHttps = true, responseTimeMs = 500 }) {
+  const normalizedUrl = url;
+  const $ = cheerio.load(html);
 
   const weakPoints = [];
 

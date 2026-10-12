@@ -3,7 +3,7 @@ import {
   Send, Mail, Sparkles, CheckCircle2, Clock, Globe, ExternalLink, 
   RefreshCw, Bot, User, ArrowRight, Play, AlertCircle, Award, Check, 
   Loader2, Copy, Eye, Edit3, ShieldCheck, Zap, TrendingUp, Layers, 
-  Sliders, MessageSquare, ChevronDown
+  Sliders, MessageSquare, ChevronDown, Upload, FileSpreadsheet
 } from 'lucide-react';
 import api from '../api/client';
 
@@ -41,6 +41,10 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
   const [autoSendSuccessMsg, setAutoSendSuccessMsg] = useState('');
   const [isSearchingEmail, setIsSearchingEmail] = useState(false);
   const [emailSearchMessage, setEmailSearchMessage] = useState('');
+
+  // Quick Scraper File Upload inside AI Closer Hub
+  const [isUploadingHubFile, setIsUploadingHubFile] = useState(false);
+  const [hubUploadMsg, setHubUploadMsg] = useState('');
 
   // Simulation Sandbox
   const [simulationInput, setSimulationInput] = useState('');
@@ -405,6 +409,42 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
   const bodyWords = body.trim() ? body.trim().split(/\s+/).length : 0;
   const readTimeSec = Math.max(12, Math.round((bodyWords / 200) * 60));
 
+  // Upload a scraper file (.xlsx / .xls / .csv) directly inside AI Closer Hub to import & email leads
+  const handleHubFileUpload = (file, autoEmailAll = false) => {
+    if (!file) return;
+    setIsUploadingHubFile(true);
+    setHubUploadMsg('');
+
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      try {
+        const res = await api.leads.uploadFile({
+          fileName: file.name,
+          fileDataBase64: ev.target.result,
+          importToPipeline: true,
+          enrichMissingEmails: true,
+          autoSendAll: autoEmailAll
+        });
+        const imported = res.leads || [];
+        if (imported.length > 0) {
+          setSelectedLead(imported[0]);
+          if (onLeadUpdated) onLeadUpdated(imported[0]);
+        }
+        if (autoEmailAll && res.autoSendReport) {
+          setHubUploadMsg(`⚡ Uploaded "${file.name}" & sent ${res.autoSendReport.count} emails!`);
+        } else {
+          setHubUploadMsg(`📥 Imported ${res.totalParsed} leads from "${file.name}"!`);
+        }
+        setTimeout(() => setHubUploadMsg(''), 6000);
+      } catch (err) {
+        alert('Upload error: ' + err.message);
+      } finally {
+        setIsUploadingHubFile(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-4">
       
@@ -425,6 +465,55 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
                 {filteredLeads.length} leads
               </span>
             </div>
+
+            {/* Direct Scraper File Upload to Email inside AI Closer Hub */}
+            <div className="grid grid-cols-2 gap-1.5">
+              <label className="cursor-pointer px-2.5 py-1.5 rounded-xl bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 text-[10px] font-bold flex items-center justify-center space-x-1 transition-all">
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  className="hidden"
+                  disabled={isUploadingHubFile}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleHubFileUpload(f, false);
+                    e.target.value = '';
+                  }}
+                />
+                {isUploadingHubFile ? (
+                  <Loader2 className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Upload className="w-3 h-3" />
+                )}
+                <span>Upload File</span>
+              </label>
+
+              <label
+                className="cursor-pointer px-2.5 py-1.5 rounded-xl bg-gradient-to-r from-amber-400 to-orange-500 hover:from-amber-300 hover:to-orange-400 text-slate-950 text-[10px] font-extrabold flex items-center justify-center space-x-1 transition-all shadow-sm"
+                title="Upload .xlsx or .csv scraper file and immediately email all leads in it"
+              >
+                <input
+                  type="file"
+                  accept=".xlsx,.xls,.csv"
+                  className="hidden"
+                  disabled={isUploadingHubFile}
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) handleHubFileUpload(f, true);
+                    e.target.value = '';
+                  }}
+                />
+                <Send className="w-3 h-3" />
+                <span>⚡ Upload &amp; Email</span>
+              </label>
+            </div>
+
+            {hubUploadMsg && (
+              <div className="p-2 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-300 text-[10px] font-bold flex items-center space-x-1.5">
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="truncate">{hubUploadMsg}</span>
+              </div>
+            )}
 
             {/* Search */}
             <input
