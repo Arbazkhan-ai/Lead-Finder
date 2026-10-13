@@ -1,6 +1,6 @@
 import nodemailer from 'nodemailer';
 import db from '../db.js';
-import { analyzeClientReply, generateAiReply, generateInitialOutreach } from './aiNegotiator.js';
+import { analyzeClientReply, generateAiReply, generateInitialOutreach, stripEmojis } from './aiNegotiator.js';
 import { findRealEmailForLead } from './leadFinder.js';
 
 let transporter = null;
@@ -37,9 +37,11 @@ function escapeHtml(str = '') {
 
 /**
  * Convert plain-text outreach body into a clean, high-deliverability HTML email with clickable links & executive signature CTA
+ * Strictly strips any emojis to maintain maximum deliverability and corporate professionalism.
  */
 export function buildHtmlEmail({ body = '', senderName = 'Arbaz Khan', senderTitle = 'AI Engineer & Systems Architect', businessName = 'Arbaz Khan — AI Systems & Engineering', senderEmail = 'arbazkhanofficial@gmail.com', portfolioUrl = 'https://arbazkhaan.vercel.app/', bookingLink = 'https://arbazkhaan.vercel.app/#contact' }) {
-  const lines = String(body || '').split('\n');
+  const cleanBody = stripEmojis(body || '');
+  const lines = cleanBody.split('\n');
   const htmlBlocks = [];
 
   for (const rawLine of lines) {
@@ -65,7 +67,7 @@ export function buildHtmlEmail({ body = '', senderName = 'Arbaz Khan', senderTit
       (url) => `<a href="${url}" target="_blank" style="color:#0284c7;font-weight:600;text-decoration:underline;">${url}</a>`
     );
 
-    if (/^(\d+\.\s*❌|⚠️|💡|🚀|👉|📅|•|-)/.test(trimmed)) {
+    if (/^(\d+\.|\*|•|-|\[.*?\])/.test(trimmed)) {
       htmlBlocks.push(
         `<div style="padding:6px 12px;margin:4px 0;background:#f8fafc;border-left:3px solid #0ea5e9;border-radius:4px;font-size:14px;line-height:1.55;color:#0f172a;">${escaped}</div>`
       );
@@ -90,12 +92,12 @@ export function buildHtmlEmail({ body = '', senderName = 'Arbaz Khan', senderTit
         <tr>
           <td style="padding-right:12px;">
             <a href="${bookingLink}" target="_blank" style="display:inline-block;padding:10px 18px;background:linear-gradient(135deg,#0284c7,#2563eb);color:#ffffff;font-size:13px;font-weight:700;text-decoration:none;border-radius:8px;">
-              📅 Book a 10-Min Walkthrough
+              Book a 10-Min Walkthrough
             </a>
           </td>
           <td>
             <a href="${portfolioUrl}" target="_blank" style="display:inline-block;padding:10px 16px;background:#f1f5f9;color:#0f172a;font-size:13px;font-weight:600;text-decoration:none;border-radius:8px;border:1px solid #cbd5e1;">
-              🌐 View AI Portfolio &amp; Case Studies
+              View AI Portfolio &amp; Case Studies
             </a>
           </td>
         </tr>
@@ -146,13 +148,17 @@ export async function sendEmail({ leadId, subject, body, aiGenerated = false, to
     lead.email = targetEmail;
   }
 
+  // Strictly sanitize subject and body so no emojis are ever transmitted or stored
+  const cleanSubject = stripEmojis(subject || '');
+  const cleanBody = stripEmojis(body || '');
+
   const senderName = smtp.fromName || aiConfig.senderName || 'Arbaz Khan';
   const senderEmail = smtp.fromEmail || smtp.user || 'arbazkhanofficial@gmail.com';
   const fromHeader = `"${senderName}" <${senderEmail}>`;
   const toHeader = validCcList.length > 0 ? `${targetEmail} (CC: ${validCcList.join(', ')})` : targetEmail;
 
   const htmlBody = buildHtmlEmail({
-    body,
+    body: cleanBody,
     senderName,
     senderTitle: aiConfig.senderTitle || 'AI Engineer & Systems Architect',
     businessName: aiConfig.businessName || 'Arbaz Khan — AI Systems & Engineering',
@@ -174,8 +180,8 @@ export async function sendEmail({ leadId, subject, body, aiGenerated = false, to
           replyTo: senderEmail,
           // BCC yourself so the email shows directly in your Gmail Inbox as well as Sent Mail
           bcc: senderEmail,
-          subject: subject,
-          text: body,
+          subject: cleanSubject,
+          text: cleanBody,
           html: htmlBody
         });
       }
@@ -192,8 +198,8 @@ export async function sendEmail({ leadId, subject, body, aiGenerated = false, to
     direction: 'outbound',
     from: fromHeader,
     to: toHeader,
-    subject: subject,
-    body: body,
+    subject: cleanSubject,
+    body: cleanBody,
     status: sendStatus,
     aiGenerated: aiGenerated
   });
@@ -264,6 +270,9 @@ export async function receiveInboundEmail({ leadId, replyText, subject = null })
       clientReplyText: replyText
     });
 
+    const cleanReplySubject = stripEmojis(aiResponse.subject);
+    const cleanReplyBody = stripEmojis(aiResponse.body);
+
     const smtp = settings.smtp || {};
     const aiConfig = settings.ai || {};
     // Dispatch via SMTP if live mode enabled
@@ -276,10 +285,10 @@ export async function receiveInboundEmail({ leadId, replyText, subject = null })
             to: lead.email,
             replyTo: senderEmail,
             bcc: senderEmail,
-            subject: aiResponse.subject,
-            text: aiResponse.body,
+            subject: cleanReplySubject,
+            text: cleanReplyBody,
             html: buildHtmlEmail({
-              body: aiResponse.body,
+              body: cleanReplyBody,
               senderName: smtp.fromName || aiConfig.senderName || 'Arbaz Khan',
               senderTitle: aiConfig.senderTitle || 'AI Engineer & Systems Architect',
               businessName: aiConfig.businessName || 'Arbaz Khan — AI Systems & Engineering',
@@ -300,8 +309,8 @@ export async function receiveInboundEmail({ leadId, replyText, subject = null })
       direction: 'outbound',
       from: myAddress,
       to: leadAddress,
-      subject: aiResponse.subject,
-      body: aiResponse.body,
+      subject: cleanReplySubject,
+      body: cleanReplyBody,
       status: 'sent',
       aiGenerated: true
     });

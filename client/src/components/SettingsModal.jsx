@@ -56,60 +56,60 @@ export default function SettingsModal({ isOpen, onClose, settings, onSettingsUpd
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm">
-      <div className="bg-slate-900 border border-slate-800 rounded-2xl w-full max-w-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+      <div className="bg-white border border-slate-200 rounded-2xl w-full max-w-2xl shadow-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
         
         {/* Modal Header */}
-        <div className="p-4 border-b border-slate-800 flex items-center justify-between bg-slate-950/50">
+        <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
           <div>
-            <h3 className="font-bold text-white text-base flex items-center space-x-2">
-              <Sparkles className="w-5 h-5 text-cyan-400" />
-              <span>Platform Configuration & AI Offer</span>
+            <h3 className="font-bold text-slate-900 text-base flex items-center space-x-2">
+              <Sparkles className="w-5 h-5 text-blue-600" />
+              <span>Platform Configuration &amp; AI Offer</span>
             </h3>
-            <p className="text-xs text-slate-400">Configure your business pitch, closing offer, and email delivery</p>
+            <p className="text-xs text-slate-500">Configure your business pitch, closing offer, and email delivery</p>
           </div>
           <button
             onClick={onClose}
-            className="p-1 rounded-lg text-slate-400 hover:text-white hover:bg-slate-800 transition-colors"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Tab Selector */}
-        <div className="flex border-b border-slate-800 bg-slate-950/30 px-4">
+        <div className="flex border-b border-slate-200 bg-slate-50/50 px-4">
           <button
             onClick={() => setActiveTab('ai')}
             className={`py-3 px-4 text-xs font-semibold flex items-center space-x-2 border-b-2 transition-all ${
               activeTab === 'ai'
-                ? 'border-cyan-400 text-cyan-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-blue-600 text-blue-600 font-bold'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             <Bot className="w-4 h-4" />
-            <span>AI Sales Closer & Offer</span>
+            <span>AI Sales Closer &amp; Offer</span>
           </button>
           <button
             onClick={() => setActiveTab('smtp')}
             className={`py-3 px-4 text-xs font-semibold flex items-center space-x-2 border-b-2 transition-all ${
               activeTab === 'smtp'
-                ? 'border-cyan-400 text-cyan-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-blue-600 text-blue-600 font-bold'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
             <Mail className="w-4 h-4" />
-            <span>Email Delivery & SMTP</span>
+            <span>Email Delivery &amp; SMTP</span>
           </button>
           <button
             onClick={() => setActiveTab('maps')}
             className={`py-3 px-4 text-xs font-semibold flex items-center space-x-2 border-b-2 transition-all ${
               activeTab === 'maps'
-                ? 'border-cyan-400 text-cyan-400'
-                : 'border-transparent text-slate-400 hover:text-slate-200'
+                ? 'border-blue-600 text-blue-600 font-bold'
+                : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
-            <MapPin className="w-4 h-4 text-red-400" />
-            <span>Google Maps & Search API</span>
+            <MapPin className="w-4 h-4 text-red-500" />
+            <span>Google Maps &amp; Search API</span>
           </button>
         </div>
 
@@ -121,13 +121,13 @@ export default function SettingsModal({ isOpen, onClose, settings, onSettingsUpd
             <div className="space-y-4">
               
               {/* Autopilot Toggle */}
-              <div className="p-4 rounded-xl bg-gradient-to-r from-cyan-950/40 to-blue-950/40 border border-cyan-500/30 flex items-center justify-between">
+              <div className="p-4 rounded-xl bg-blue-50/70 border border-blue-200 flex items-center justify-between">
                 <div>
-                  <h4 className="font-bold text-white text-xs flex items-center space-x-1.5">
-                    <ShieldCheck className="w-4 h-4 text-cyan-400" />
+                  <h4 className="font-bold text-slate-900 text-xs flex items-center space-x-1.5">
+                    <ShieldCheck className="w-4 h-4 text-blue-600" />
                     <span>Autonomous AI Auto-Reply (Autopilot)</span>
                   </h4>
-                  <p className="text-[11px] text-slate-300 mt-0.5">
+                  <p className="text-[11px] text-slate-600 mt-0.5">
                     When a lead replies with an objection or inquiry, AI automatically crafts and sends the counter-reply to drive towards closing.
                   </p>
                 </div>
@@ -141,29 +141,29 @@ export default function SettingsModal({ isOpen, onClose, settings, onSettingsUpd
                     })}
                     className="sr-only peer"
                   />
-                  <div className="w-11 h-6 bg-slate-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-cyan-500"></div>
+                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
                 </label>
               </div>
 
               {/* Business Name & Sender */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-slate-400 font-semibold block mb-1">Your Business / Agency Name</label>
+                  <label className="text-slate-600 font-semibold block mb-1">Your Business / Agency Name</label>
                   <input
                     type="text"
                     value={formData.ai.businessName}
                     onChange={(e) => setFormData({ ...formData, ai: { ...formData.ai, businessName: e.target.value } })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white focus:border-cyan-400 focus:outline-none"
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-800 focus:border-blue-500 focus:outline-none"
                     required
                   />
                 </div>
                 <div>
-                  <label className="text-slate-400 font-semibold block mb-1">Sender Name & Title</label>
+                  <label className="text-slate-600 font-semibold block mb-1">Sender Name &amp; Title</label>
                   <input
                     type="text"
                     value={formData.ai.senderName}
                     onChange={(e) => setFormData({ ...formData, ai: { ...formData.ai, senderName: e.target.value } })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white focus:border-cyan-400 focus:outline-none"
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-800 focus:border-blue-500 focus:outline-none"
                     placeholder="e.g. Alex Sterling, Founder"
                     required
                   />
@@ -172,35 +172,35 @@ export default function SettingsModal({ isOpen, onClose, settings, onSettingsUpd
 
               {/* Pitch Offer */}
               <div>
-                <label className="text-slate-400 font-semibold block mb-1">Primary Value Proposition / Outreach Pitch</label>
+                <label className="text-slate-600 font-semibold block mb-1">Primary Value Proposition / Outreach Pitch</label>
                 <textarea
                   rows={2}
                   value={formData.ai.pitchOffer}
                   onChange={(e) => setFormData({ ...formData, ai: { ...formData.ai, pitchOffer: e.target.value } })}
-                  className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-white focus:border-cyan-400 focus:outline-none text-xs"
+                  className="w-full p-3 rounded-xl bg-white border border-slate-300 text-slate-800 focus:border-blue-500 focus:outline-none text-xs"
                 />
               </div>
 
               {/* Pricing & Deal Closing Offer */}
               <div>
-                <label className="text-slate-400 font-semibold block mb-1">Pricing & Objection-Crushing Closing Offer</label>
+                <label className="text-slate-600 font-semibold block mb-1">Pricing &amp; Objection-Crushing Closing Offer</label>
                 <textarea
                   rows={2}
                   value={formData.ai.pricingModel}
                   onChange={(e) => setFormData({ ...formData, ai: { ...formData.ai, pricingModel: e.target.value } })}
-                  className="w-full p-3 rounded-xl bg-slate-950 border border-slate-700 text-white focus:border-cyan-400 focus:outline-none text-xs"
+                  className="w-full p-3 rounded-xl bg-white border border-slate-300 text-slate-800 focus:border-blue-500 focus:outline-none text-xs"
                   placeholder="Standard pricing and special discount / pilot offer when client objects on price"
                 />
               </div>
 
               {/* Booking Link */}
               <div>
-                <label className="text-slate-400 font-semibold block mb-1">Booking Calendar Link (Calendly / Cal.com / Meet)</label>
+                <label className="text-slate-600 font-semibold block mb-1">Booking Calendar Link (Calendly / Cal.com / Meet)</label>
                 <input
                   type="url"
                   value={formData.ai.bookingLink}
                   onChange={(e) => setFormData({ ...formData, ai: { ...formData.ai, bookingLink: e.target.value } })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white focus:border-cyan-400 focus:outline-none"
+                  className="w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-800 focus:border-blue-500 focus:outline-none"
                   placeholder="https://calendly.com/yourname/intro"
                 />
               </div>
@@ -208,11 +208,11 @@ export default function SettingsModal({ isOpen, onClose, settings, onSettingsUpd
               {/* AI Engine Provider */}
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-slate-400 font-semibold block mb-1">AI Engine</label>
+                  <label className="text-slate-600 font-semibold block mb-1">AI Engine</label>
                   <select
                     value={formData.ai.provider}
                     onChange={(e) => setFormData({ ...formData, ai: { ...formData.ai, provider: e.target.value } })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white focus:border-cyan-400 focus:outline-none"
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-800 focus:border-blue-500 focus:outline-none"
                   >
                     <option value="built_in">Built-in Sales Closer (No API key required)</option>
                     <option value="openai">OpenAI (GPT-4o)</option>
@@ -222,12 +222,12 @@ export default function SettingsModal({ isOpen, onClose, settings, onSettingsUpd
 
                 {formData.ai.provider !== 'built_in' && (
                   <div>
-                    <label className="text-slate-400 font-semibold block mb-1">API Key</label>
+                    <label className="text-slate-600 font-semibold block mb-1">API Key</label>
                     <input
                       type="password"
                       value={formData.ai.apiKey}
                       onChange={(e) => setFormData({ ...formData, ai: { ...formData.ai, apiKey: e.target.value } })}
-                      className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white focus:border-cyan-400 focus:outline-none"
+                      className="w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-800 focus:border-blue-500 focus:outline-none"
                       placeholder="sk-..."
                     />
                   </div>
@@ -242,41 +242,41 @@ export default function SettingsModal({ isOpen, onClose, settings, onSettingsUpd
             <div className="space-y-4">
 
               {/* Gmail Live Connection Guide */}
-              <div className="p-4 rounded-xl bg-gradient-to-r from-blue-950/60 to-slate-900 border border-blue-500/30 space-y-2">
-                <div className="flex items-center space-x-2 text-cyan-300 font-bold text-xs">
-                  <Mail className="w-4 h-4 text-cyan-400" />
+              <div className="p-4 rounded-xl bg-blue-50/80 border border-blue-200 space-y-2">
+                <div className="flex items-center space-x-2 text-blue-900 font-bold text-xs">
+                  <Mail className="w-4 h-4 text-blue-600" />
                   <span>Send Real Emails from Your Gmail (arbazkhanofficial@gmail.com)</span>
                 </div>
-                <p className="text-[11px] text-slate-300 leading-relaxed">
+                <p className="text-[11px] text-slate-600 leading-relaxed">
                   When Gmail is connected, every email you send through this platform will be sent directly from your Gmail account and <strong>will appear directly inside your Gmail Sent folder and Inbox</strong>!
                 </p>
-                <div className="bg-slate-950/70 p-3 rounded-lg border border-slate-800 text-[11px] text-slate-300 space-y-1.5">
-                  <div className="font-semibold text-white flex items-center justify-between">
+                <div className="bg-white p-3.5 rounded-lg border border-blue-200/70 text-[11px] text-slate-600 space-y-1.5 shadow-xs">
+                  <div className="font-semibold text-slate-900 flex items-center justify-between">
                     <span>How to get your 16-character Gmail App Password (30 sec):</span>
                     <a
                       href="https://myaccount.google.com/apppasswords"
                       target="_blank"
                       rel="noreferrer"
-                      className="text-cyan-400 hover:underline inline-flex items-center space-x-1 text-[10px]"
+                      className="text-blue-600 hover:underline inline-flex items-center space-x-1 text-[10px]"
                     >
-                      <span>Google App Passwords Link →</span>
+                      <span>Google App Passwords Link &rarr;</span>
                     </a>
                   </div>
-                  <ol className="list-decimal list-inside space-y-1 text-slate-400 text-[11px]">
-                    <li>Open <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" className="text-cyan-400 underline">Google App Passwords</a> (ensure 2-Step Verification is active on your Google account).</li>
-                    <li>Type App name: <code className="text-cyan-300 bg-slate-900 px-1 py-0.5 rounded">Leads Finder</code> and click <strong>Create</strong>.</li>
-                    <li>Copy the 16-character password (e.g. <code className="text-cyan-300 bg-slate-900 px-1 py-0.5 rounded">xxxx xxxx xxxx xxxx</code>) and paste it into <strong>SMTP Password</strong> below.</li>
+                  <ol className="list-decimal list-inside space-y-1 text-slate-600 text-[11px]">
+                    <li>Open <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noreferrer" className="text-blue-600 underline">Google App Passwords</a> (ensure 2-Step Verification is active on your Google account).</li>
+                    <li>Type App name: <code className="text-blue-700 bg-blue-50 px-1 py-0.5 rounded">Leads Finder</code> and click <strong>Create</strong>.</li>
+                    <li>Copy the 16-character password (e.g. <code className="text-blue-700 bg-blue-50 px-1 py-0.5 rounded">xxxx xxxx xxxx xxxx</code>) and paste it into <strong>SMTP Password</strong> below.</li>
                     <li>Uncheck <strong>Safe Testing & Simulation Mode</strong> below and click <strong>Save Settings</strong>.</li>
                   </ol>
                 </div>
               </div>
               
               {/* Simulation Mode Switch */}
-              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 space-y-2">
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-2">
                 <div className="flex items-center justify-between">
                   <div>
-                    <h4 className="font-bold text-white text-xs">Safe Testing & Simulation Mode</h4>
-                    <p className="text-[11px] text-slate-400">
+                    <h4 className="font-bold text-slate-900 text-xs">Safe Testing & Simulation Mode</h4>
+                    <p className="text-[11px] text-slate-600">
                       When checked, cold emails and replies are processed in test mode without emailing real inboxes. Uncheck this once you add your Gmail App Password to send real live emails!
                     </p>
                   </div>
@@ -287,72 +287,72 @@ export default function SettingsModal({ isOpen, onClose, settings, onSettingsUpd
                       ...formData,
                       smtp: { ...formData.smtp, simulatedMode: e.target.checked }
                     })}
-                    className="rounded bg-slate-900 border-slate-700 text-cyan-500 focus:ring-0 w-4 h-4 cursor-pointer"
+                    className="rounded bg-white border-slate-300 text-blue-600 focus:ring-0 w-4 h-4 cursor-pointer"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-slate-400 font-semibold block mb-1">Sender From Name</label>
+                  <label className="text-slate-600 font-semibold block mb-1">Sender From Name</label>
                   <input
                     type="text"
                     value={formData.smtp.fromName}
                     onChange={(e) => setFormData({ ...formData, smtp: { ...formData.smtp, fromName: e.target.value } })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white focus:border-cyan-400 focus:outline-none"
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-900 focus:border-blue-500 focus:outline-none"
                   />
                 </div>
                 <div>
-                  <label className="text-slate-400 font-semibold block mb-1">Sender From Email</label>
+                  <label className="text-slate-600 font-semibold block mb-1">Sender From Email</label>
                   <input
                     type="email"
                     value={formData.smtp.fromEmail}
                     onChange={(e) => setFormData({ ...formData, smtp: { ...formData.smtp, fromEmail: e.target.value } })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white focus:border-cyan-400 focus:outline-none font-mono"
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-900 focus:border-blue-500 focus:outline-none font-mono"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-3 gap-3">
                 <div className="col-span-2">
-                  <label className="text-slate-400 font-semibold block mb-1">SMTP Host</label>
+                  <label className="text-slate-600 font-semibold block mb-1">SMTP Host</label>
                   <input
                     type="text"
                     value={formData.smtp.host}
                     onChange={(e) => setFormData({ ...formData, smtp: { ...formData.smtp, host: e.target.value } })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white focus:border-cyan-400 focus:outline-none font-mono"
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-900 focus:border-blue-500 focus:outline-none font-mono"
                     placeholder="smtp.gmail.com"
                   />
                 </div>
                 <div>
-                  <label className="text-slate-400 font-semibold block mb-1">Port</label>
+                  <label className="text-slate-600 font-semibold block mb-1">Port</label>
                   <input
                     type="number"
                     value={formData.smtp.port}
                     onChange={(e) => setFormData({ ...formData, smtp: { ...formData.smtp, port: Number(e.target.value) } })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white focus:border-cyan-400 focus:outline-none font-mono"
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-900 focus:border-blue-500 focus:outline-none font-mono"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-slate-400 font-semibold block mb-1">SMTP Username / Email</label>
+                  <label className="text-slate-600 font-semibold block mb-1">SMTP Username / Email</label>
                   <input
                     type="text"
                     value={formData.smtp.user}
                     onChange={(e) => setFormData({ ...formData, smtp: { ...formData.smtp, user: e.target.value } })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white focus:border-cyan-400 focus:outline-none font-mono"
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-900 focus:border-blue-500 focus:outline-none font-mono"
                     placeholder="your-email@gmail.com"
                   />
                 </div>
                 <div>
-                  <label className="text-slate-400 font-semibold block mb-1">SMTP Password / App Password</label>
+                  <label className="text-slate-600 font-semibold block mb-1">SMTP Password / App Password</label>
                   <input
                     type="password"
                     value={formData.smtp.pass}
                     onChange={(e) => setFormData({ ...formData, smtp: { ...formData.smtp, pass: e.target.value } })}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-950 border border-slate-700 text-white focus:border-cyan-400 focus:outline-none font-mono"
+                    className="w-full px-3 py-2 rounded-xl bg-white border border-slate-300 text-slate-900 focus:border-blue-500 focus:outline-none font-mono"
                     placeholder="••••••••••••"
                   />
                 </div>
@@ -365,68 +365,68 @@ export default function SettingsModal({ isOpen, onClose, settings, onSettingsUpd
           {activeTab === 'maps' && (
             <div className="space-y-4">
               
-              <div className="p-4 rounded-xl bg-gradient-to-r from-blue-950/40 to-slate-900 border border-blue-500/30 space-y-1">
-                <h4 className="font-bold text-white text-xs flex items-center space-x-1.5">
-                  <MapPin className="w-4 h-4 text-red-400" />
+              <div className="p-4 rounded-xl bg-blue-50/80 border border-blue-200 space-y-1">
+                <h4 className="font-bold text-slate-900 text-xs flex items-center space-x-1.5">
+                  <MapPin className="w-4 h-4 text-blue-600" />
                   <span>Real Google Maps & Places Lead Discovery</span>
                 </h4>
-                <p className="text-[11px] text-slate-300">
+                <p className="text-[11px] text-slate-600">
                   Enter your free SerpAPI or Google Places key to search live Google Maps for any industry in any city worldwide with verified physical addresses, phone numbers, and websites.
                 </p>
               </div>
 
               {/* SerpAPI Key */}
-              <div className="space-y-1.5 p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+              <div className="space-y-1.5 p-3.5 rounded-xl bg-white border border-slate-200">
                 <div className="flex items-center justify-between">
-                  <label className="text-slate-300 font-semibold flex items-center space-x-1">
-                    <Key className="w-3.5 h-3.5 text-cyan-400" />
+                  <label className="text-slate-700 font-semibold flex items-center space-x-1">
+                    <Key className="w-3.5 h-3.5 text-blue-600" />
                     <span>SerpAPI Key (Recommended • 100 Free Searches/Month)</span>
                   </label>
                   <a
                     href="https://serpapi.com/"
                     target="_blank"
                     rel="noreferrer"
-                    className="text-cyan-400 hover:underline text-[11px] font-semibold"
+                    className="text-blue-600 hover:underline text-[11px] font-semibold"
                   >
-                    Get Free Key at SerpAPI.com →
+                    Get Free Key at SerpAPI.com &rarr;
                   </a>
                 </div>
                 <input
                   type="password"
                   value={formData.serpApiKey}
                   onChange={(e) => setFormData({ ...formData, serpApiKey: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white focus:border-cyan-400 focus:outline-none font-mono text-xs"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:border-blue-500 focus:bg-white focus:outline-none font-mono text-xs"
                   placeholder="Paste your SerpAPI key here..."
                 />
-                <p className="text-[10px] text-slate-400">
+                <p className="text-[10px] text-slate-500">
                   Scrapes Google Maps Places directly with zero bot blocks, pulling official websites, reviews, and phone numbers.
                 </p>
               </div>
 
               {/* Google Places API Key */}
-              <div className="space-y-1.5 p-3.5 rounded-xl bg-slate-950 border border-slate-800">
+              <div className="space-y-1.5 p-3.5 rounded-xl bg-white border border-slate-200">
                 <div className="flex items-center justify-between">
-                  <label className="text-slate-300 font-semibold flex items-center space-x-1">
-                    <Key className="w-3.5 h-3.5 text-cyan-400" />
+                  <label className="text-slate-700 font-semibold flex items-center space-x-1">
+                    <Key className="w-3.5 h-3.5 text-blue-600" />
                     <span>Google Places API Key ($200 Monthly Free Credit)</span>
                   </label>
                   <a
                     href="https://console.cloud.google.com/google/maps-apis/"
                     target="_blank"
                     rel="noreferrer"
-                    className="text-cyan-400 hover:underline text-[11px] font-semibold"
+                    className="text-blue-600 hover:underline text-[11px] font-semibold"
                   >
-                    Google Cloud Console →
+                    Google Cloud Console &rarr;
                   </a>
                 </div>
                 <input
                   type="password"
                   value={formData.googlePlacesApiKey}
                   onChange={(e) => setFormData({ ...formData, googlePlacesApiKey: e.target.value })}
-                  className="w-full px-3 py-2 rounded-xl bg-slate-900 border border-slate-700 text-white focus:border-cyan-400 focus:outline-none font-mono text-xs"
+                  className="w-full px-3 py-2 rounded-xl bg-slate-50 border border-slate-300 text-slate-900 focus:border-blue-500 focus:bg-white focus:outline-none font-mono text-xs"
                   placeholder="AIzaSy..."
                 />
-                <p className="text-[10px] text-slate-400">
+                <p className="text-[10px] text-slate-500">
                   Official Google Maps Platform Text Search & Place Details API.
                 </p>
               </div>
@@ -435,9 +435,9 @@ export default function SettingsModal({ isOpen, onClose, settings, onSettingsUpd
           )}
 
           {/* Footer Save Actions */}
-          <div className="pt-4 border-t border-slate-800 flex items-center justify-between">
+          <div className="pt-4 border-t border-slate-200 flex items-center justify-between">
             {savedNotice ? (
-              <span className="text-xs text-emerald-400 font-semibold flex items-center space-x-1">
+              <span className="text-xs text-emerald-600 font-semibold flex items-center space-x-1">
                 <CheckCircle2 className="w-4 h-4" />
                 <span>Settings saved successfully!</span>
               </span>
@@ -449,14 +449,14 @@ export default function SettingsModal({ isOpen, onClose, settings, onSettingsUpd
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-medium"
+                className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-medium text-xs transition-colors"
               >
                 Close
               </button>
               <button
                 type="submit"
                 disabled={isSaving}
-                className="px-5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold shadow-md shadow-cyan-500/20 flex items-center space-x-1.5"
+                className="px-5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm flex items-center space-x-1.5 transition-colors"
               >
                 <Save className="w-4 h-4" />
                 <span>{isSaving ? 'Saving...' : 'Save Settings'}</span>

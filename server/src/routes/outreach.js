@@ -11,10 +11,39 @@ import {
   generateInitialOutreach, 
   generateAiReply, 
   diagnoseLeadProblemSolution,
-  generateSubjectOptions
+  generateSubjectOptions,
+  generateMultiChannelMessages,
+  buildChannelRedirectUrls
 } from '../services/aiNegotiator.js';
 
 const router = express.Router();
+
+// POST /api/outreach/generate-channels - AI drafts tailored messages & direct redirects for WhatsApp, IG, LinkedIn, SMS, X
+router.post('/generate-channels', (req, res) => {
+  try {
+    const { leadId, leadData, angleId, customProblem, customSolution, customHowWeHelp } = req.body;
+    let lead = leadData;
+    if (leadId) {
+      const found = db.getLeadById(leadId);
+      if (found) lead = { ...found, ...(leadData || {}) };
+    }
+    if (!lead) {
+      return res.status(400).json({ success: false, error: 'leadId or leadData is required' });
+    }
+
+    const multiChannel = generateMultiChannelMessages({
+      lead,
+      angleId,
+      customProblem,
+      customSolution,
+      customHowWeHelp
+    });
+
+    res.json({ success: true, ...multiChannel });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
 
 // GET /api/outreach/thread/:leadId - Get full conversation thread for a lead
 router.get('/thread/:leadId', (req, res) => {

@@ -12,7 +12,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
     angles: {
       speed_to_lead: {
         id: 'speed_to_lead',
-        name: '⚡ After-Hours Patient Inquiries & Missed Bookings',
+        name: 'After-Hours Patient Inquiries & Missed Bookings',
         tag: 'Intake Automation',
         problem: 'Dental & medical practices miss ~32% of prospective patient inquiries that arrive after 5 PM or during busy clinic hours, causing high-value treatments (implants, invisalign, consultations) to go to nearby competitors.',
         solution: 'Deploy an automated 24/7 AI intake concierge on your website and SMS that answers patient questions in <15 seconds, verifies accepted insurance, and schedules appointments directly into your clinic calendar.',
@@ -20,7 +20,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
       },
       operations: {
         id: 'operations',
-        name: '⚙️ Front-Desk Overload & Appointment Cancellations',
+        name: 'Front-Desk Overload & Appointment Cancellations',
         tag: 'Front-Desk Automation',
         problem: 'Receptionists spend 12+ hours each week on repetitive appointment confirmations, reschedule calls, and basic FAQ inquiries, while last-minute cancellations leave expensive chair time vacant.',
         solution: 'An intelligent AI scheduling assistant that automatically handles confirmation texts, fills sudden cancellation gaps from your waitlist in minutes, and triages inbound requests without receptionist burnout.',
@@ -28,7 +28,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
       },
       revenue: {
         id: 'revenue',
-        name: '📈 Inactive Patient Re-engagement & Treatment Acceptance',
+        name: 'Inactive Patient Re-engagement & Treatment Acceptance',
         tag: 'Patient Reactivation',
         problem: 'Over 40% of patients who received treatment recommendations or routine checkup reminders never schedule follow-ups, leaving tens of thousands of dollars in booked procedures uncollected.',
         solution: 'Personalized automated outreach sequences that reach overdue patients with customized treatment benefits, flexible payment plan details, and 1-click self-scheduling.',
@@ -36,7 +36,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
       },
       ai_edge: {
         id: 'ai_edge',
-        name: '🏆 Modern AI Patient Concierge & Competitive Advantage',
+        name: 'Modern AI Patient Concierge & Competitive Advantage',
         tag: 'Custom AI Assistant',
         problem: 'Patients now expect instantaneous digital booking and immediate answers to treatment questions. Practices relying solely on phone tag lose out to modern digital-first clinics.',
         solution: 'A custom branded AI patient concierge trained specifically on your clinic services, doctors, pricing policies, and insurance guidelines.',
@@ -51,7 +51,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
     angles: {
       speed_to_lead: {
         id: 'speed_to_lead',
-        name: '⚡ Instant Case Intake & Lead Capture (Under 60s)',
+        name: 'Instant Case Intake & Lead Capture (Under 60s)',
         tag: 'Case Intake Speed',
         problem: 'In legal matters (especially personal injury, criminal defense, and family law), 78% of claimants retain the first law firm that responds. Inquiries left waiting for even 30 minutes are almost always lost to competing firms.',
         solution: 'An automated 24/7 AI case intake assistant that immediately engages prospective clients, pre-screens case criteria (statute of limitations, liability, jurisdiction), and books qualified consultations directly on attorney calendars.',
@@ -59,7 +59,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
       },
       operations: {
         id: 'operations',
-        name: '⚙️ Attorney Time Wasted on Unqualified Consultations',
+        name: 'Attorney Time Wasted on Unqualified Consultations',
         tag: 'Intake Pre-Screening',
         problem: 'Attorneys and paralegals waste 10 to 15 billable hours each week fielding calls and consults from individuals whose cases do not fit the firm’s practice areas, retainer minimums, or viability thresholds.',
         solution: 'Intelligent AI intake questionnaires that automatically score and filter inbound inquiries against your firm’s exact case criteria before any attorney consultation is scheduled.',
@@ -67,7 +67,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
       },
       revenue: {
         id: 'revenue',
-        name: '📈 Lost Retainers & Retainer Agreement Follow-up',
+        name: 'Lost Retainers & Retainer Agreement Follow-up',
         tag: 'Retainer Closing',
         problem: 'Prospective clients who request a fee agreement or consultation summary frequently go cold when follow-up requires manual attorney chasing, causing thousands in lost retainer revenue.',
         solution: 'Automated high-trust nurture sequences that answer lingering client concerns, provide case timeline breakdowns, and facilitate seamless e-signatures.',
@@ -75,7 +75,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
       },
       ai_edge: {
         id: 'ai_edge',
-        name: '🏆 24/7 AI Legal Intake Agent & Competitive Advantage',
+        name: '24/7 AI Legal Intake Agent & Competitive Advantage',
         tag: 'AI Legal Receptionist',
         problem: 'Traditional after-hours answering services take message slips that fail to qualify callers or convert them while their intent is at its highest.',
         solution: 'A sophisticated conversational AI intake assistant trained on legal terminology and your firm’s specific practice areas to provide immediate, reassuring responses 24/7/365.',
@@ -90,7 +90,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
     angles: {
       speed_to_lead: {
         id: 'speed_to_lead',
-        name: '⚡ Instant Discovery Audit & Inbound Proposal Capture',
+        name: 'Instant Discovery Audit & Inbound Proposal Capture',
         tag: 'Discovery Automation',
         problem: 'Inbound agency inquiries compare multiple agencies at once. When discovery calls take 3-4 days to schedule, 40% of high-ticket brand budgets end up signing with faster-moving competitors.',
         solution: 'An automated instant qualification flow that performs an initial automated brand analysis and books high-intent decision makers immediately into your senior strategists’ calendars.',
@@ -98,7 +98,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
       },
       operations: {
         id: 'operations',
-        name: '⚙️ Manual Reporting & Account Management Bottlenecks',
+        name: 'Manual Reporting & Account Management Bottlenecks',
         tag: 'Client Ops Automation',
         problem: 'Account managers spend 20+ hours every month pulling cross-channel metrics, writing monthly reports, and answering repetitive client Slack/email status updates instead of scaling retainers.',
         solution: 'Custom LLM-powered reporting workflows that ingest Google Ads, Meta, and SEO data to generate executive summaries and client insights in 60 seconds.',
@@ -106,7 +106,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
       },
       revenue: {
         id: 'revenue',
-        name: '📈 Upsell Detection & Client Churn Prevention',
+        name: 'Upsell Detection & Client Churn Prevention',
         tag: 'Retention & Upsells',
         problem: 'Agencies lose 20-30% of retainers annually because client satisfaction drops without early warning, while lucrative service upsell opportunities (SEO to Paid Ads, CRO) are missed.',
         solution: 'An automated client health tracking engine that flags account risks early and suggests personalized upsell proposals backed by performance data.',
@@ -114,7 +114,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
       },
       ai_edge: {
         id: 'ai_edge',
-        name: '🏆 White-Label AI Capabilities to Win Enterprise Retainers',
+        name: 'White-Label AI Capabilities to Win Enterprise Retainers',
         tag: 'Agency AI Superpowers',
         problem: 'Prospective agency clients now demand AI-powered speed, personalization, and modern workflows. Agencies using legacy manual processes struggle to justify premium $5k-$15k/mo retainers.',
         solution: 'Integrate enterprise AI automation workflows into your core client delivery to deliver 3x faster turnaround times with superior personalization.',
@@ -129,7 +129,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
     angles: {
       speed_to_lead: {
         id: 'speed_to_lead',
-        name: '⚡ Instant Buyer/Tenant Lead Qualification & Showing Booking',
+        name: 'Instant Buyer/Tenant Lead Qualification & Showing Booking',
         tag: 'Showing Booking Speed',
         problem: 'Property buyers and renters submit inquiries on Zillow, website forms, and social ads at night and on weekends. Delayed agent follow-ups cause 60%+ of active leads to tour competing properties instead.',
         solution: 'An automated 24/7 AI showing concierge that instantly verifies budget, timeline, and financing status, then books scheduled showings directly into agent calendars.',
@@ -137,7 +137,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
       },
       operations: {
         id: 'operations',
-        name: '⚙️ Agent Overload with Unqualified Inquiries & Rental Paperwork',
+        name: 'Agent Overload with Unqualified Inquiries & Rental Paperwork',
         tag: 'Leasing Automation',
         problem: 'Agents lose hours handling unqualified inquiries who don’t meet credit score requirements, income ratios, or target moving dates, pulling focus from closing prime deals.',
         solution: 'Automated pre-screening workflows that qualify buyers and tenants before agents ever spend time on phone calls or property tours.',
@@ -145,7 +145,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
       },
       revenue: {
         id: 'revenue',
-        name: '📈 Past Client Referral & Sphere-of-Influence Automation',
+        name: 'Past Client Referral & Sphere-of-Influence Automation',
         tag: 'Referral Engine',
         problem: 'Over 70% of homeowners say they would use their real estate agent again, but fewer than 25% actually do because agents lack systematic long-term relationship nurturing.',
         solution: 'Intelligent, automated anniversary, home equity update, and local market insight sequences that keep your team top-of-mind without manual effort.',
@@ -153,7 +153,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
       },
       ai_edge: {
         id: 'ai_edge',
-        name: '🏆 Virtual AI Property Concierge & Interactive Tour Assistant',
+        name: 'Virtual AI Property Concierge & Interactive Tour Assistant',
         tag: 'AI Real Estate Agent',
         problem: 'Static photo listings fail to answer prospective buyers’ specific questions about HOA rules, school districts, renovation details, and nearby amenities.',
         solution: 'An interactive conversational AI assistant embedded on your property listings that answers deep buyer questions 24/7 and captures showing commitments.',
@@ -168,7 +168,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
     angles: {
       speed_to_lead: {
         id: 'speed_to_lead',
-        name: '⚡ High-Intent Demo Booking & Inbound Enterprise Triage',
+        name: 'High-Intent Demo Booking & Inbound Enterprise Triage',
         tag: 'Demo Triage',
         problem: 'Enterprise and mid-market prospects who request software demos wait an average of 48 hours for an SDR email, leading to a 35% demo no-show or competitor drop-off rate.',
         solution: 'Instant conversational qualification that enriches company domain info, identifies annual contract value potential, and offers immediate calendar booking to top-tier leads.',
@@ -176,7 +176,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
       },
       operations: {
         id: 'operations',
-        name: '⚙️ Support Ticket Backlog & Tier-1 Resolution Overload',
+        name: 'Support Ticket Backlog & Tier-1 Resolution Overload',
         tag: 'Support Automation',
         problem: 'Customer support teams are overwhelmed with repetitive Tier-1 documentation, billing, and troubleshooting tickets, leading to slow response times and customer churn.',
         solution: 'A domain-specific AI support engineer that reads your product docs, API specs, and resolved tickets to autonomously solve 50-70% of inquiries with zero wait time.',
@@ -184,7 +184,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
       },
       revenue: {
         id: 'revenue',
-        name: '📈 Trial-to-Paid Conversion & Churn Prevention',
+        name: 'Trial-to-Paid Conversion & Churn Prevention',
         tag: 'Product-Led Conversion',
         problem: 'SaaS companies lose 80%+ of free trial users during the first 14 days because users get stuck on onboarding steps without prompt guidance.',
         solution: 'Behavior-triggered AI in-app messaging and targeted email sequences that identify user drop-off points and guide them to activation milestones.',
@@ -192,7 +192,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
       },
       ai_edge: {
         id: 'ai_edge',
-        name: '🏆 Custom LLM Feature Integration & Proprietary Workflows',
+        name: 'Custom LLM Feature Integration & Proprietary Workflows',
         tag: 'Custom AI Architecture',
         problem: 'Product teams have long roadmaps and lack the specialized LLM/RAG architecture expertise to ship competitive AI features quickly.',
         solution: 'Production-ready LLM pipelines, semantic search, and RAG architectures integrated cleanly into your existing stack with enterprise security.',
@@ -207,7 +207,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
     angles: {
       speed_to_lead: {
         id: 'speed_to_lead',
-        name: '⚡ Emergency Service & After-Hours Quote Capture',
+        name: 'Emergency Service & After-Hours Quote Capture',
         tag: 'Immediate Dispatch',
         problem: 'Homeowners needing urgent repairs (leaks, AC breakdowns, storm damage) call 2-3 companies. If your phone goes to voicemail or website forms take hours to reply, the job is permanently lost.',
         solution: 'An automated 24/7 quote and emergency triage system that sends instant text replies, collects damage photos/details, and schedules estimator visits on the spot.',
@@ -215,7 +215,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
       },
       operations: {
         id: 'operations',
-        name: '⚙️ Estimator Travel & Time Wasted on Unqualified Jobs',
+        name: 'Estimator Travel & Time Wasted on Unqualified Jobs',
         tag: 'Quote Qualification',
         problem: 'Field estimators waste 15+ hours weekly driving out to quote jobs that are too small, out of service territory, or outside the homeowner’s budget.',
         solution: 'An automated pre-estimate triage workflow that collects job dimensions, photo uploads, and budget expectations before dispatching an estimator.',
@@ -223,7 +223,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
       },
       revenue: {
         id: 'revenue',
-        name: '📈 Unsold Estimates & Seasonal Maintenance Reactivation',
+        name: 'Unsold Estimates & Seasonal Maintenance Reactivation',
         tag: 'Estimate Follow-up',
         problem: 'Over 50% of sent quotes and seasonal maintenance reminders sit without follow-up because contractors are busy on job sites, leaving hundreds of thousands on the table.',
         solution: 'Automated multi-channel follow-up sequences that answer homeowner concerns, offer financing options, and secure approved contracts.',
@@ -231,7 +231,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
       },
       ai_edge: {
         id: 'ai_edge',
-        name: '🏆 24/7 AI Dispatcher & Local Market Dominance',
+        name: '24/7 AI Dispatcher & Local Market Dominance',
         tag: 'AI Dispatch Agent',
         problem: 'Traditional phone services don’t understand trade terminology or actual calendar availability, frustrating homeowners who need immediate solutions.',
         solution: 'A specialized trade AI booking assistant that understands job scopes, asks the right diagnostic questions, and books directly into your dispatch calendar.',
@@ -246,7 +246,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
     angles: {
       speed_to_lead: {
         id: 'speed_to_lead',
-        name: '⚡ High-Value Client Intake & Instant Consultation Booking',
+        name: 'High-Value Client Intake & Instant Consultation Booking',
         tag: 'Financial Intake Speed',
         problem: 'High-net-worth individuals and business owners shopping for CPA or wealth services expect white-glove speed. Slow response times signal disorganization and lose lucrative annual retainers.',
         solution: 'A secure, automated discovery concierge that pre-screens entity type, annual revenue, and service needs, immediately booking qualified consults on your calendar.',
@@ -254,7 +254,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
       },
       operations: {
         id: 'operations',
-        name: '⚙️ Document Chasing & Client Onboarding Bottlenecks',
+        name: 'Document Chasing & Client Onboarding Bottlenecks',
         tag: 'Client Onboarding Ops',
         problem: 'Accountants waste 20+ hours each month sending reminder emails chasing W-2s, bank statements, and tax documents, causing severe project delays and tax season burnout.',
         solution: 'Automated smart document collection workflows that send polite multi-channel reminders, verify received formats, and update client file statuses automatically.',
@@ -262,7 +262,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
       },
       revenue: {
         id: 'revenue',
-        name: '📈 Tax Season Client Retention & Year-Round Advisory Upsells',
+        name: 'Tax Season Client Retention & Year-Round Advisory Upsells',
         tag: 'Advisory Retainer Growth',
         problem: 'Firms rely heavily on one-off tax prep fees while missing out on lucrative monthly fractional CFO or tax-planning retainers ($1,500 - $5,000/mo).',
         solution: 'Automated financial review triggers that identify qualifying business clients and invite them into high-margin ongoing advisory retainers.',
@@ -270,7 +270,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
       },
       ai_edge: {
         id: 'ai_edge',
-        name: '🏆 Proprietary AI Financial Document Classifier & Triage',
+        name: 'Proprietary AI Financial Document Classifier & Triage',
         tag: 'Secure Financial AI',
         problem: 'Sorting through hundreds of disparate client receipts, invoices, and bank statements manually drains staff capacity during peak seasons.',
         solution: 'A private, compliant AI document classification engine that extracts, categorizes, and organizes client financial data in seconds.',
@@ -285,7 +285,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
     angles: {
       speed_to_lead: {
         id: 'speed_to_lead',
-        name: '⚡ 24/7 Lead Capture & Speed-to-Response Advantage',
+        name: '24/7 Lead Capture & Speed-to-Response Advantage',
         tag: 'Speed to Response',
         problem: 'Over 67% of business buyers choose the vendor that responds first. Inquiries submitted after hours or during peak work hours often wait 24-48 hours, resulting in lost deals to competitors.',
         solution: 'Deploy an automated 24/7 AI qualification concierge that responds in <30 seconds, answers prospect questions, and books qualified appointments on your team’s calendar.',
@@ -293,7 +293,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
       },
       operations: {
         id: 'operations',
-        name: '⚙️ Repetitive Administrative Overhead & Staff Burnout',
+        name: 'Repetitive Administrative Overhead & Staff Burnout',
         tag: 'Workflow Automation',
         problem: 'Key team members spend 10-15 hours every week on manual data entry, email triage, appointment coordination, and status updates instead of revenue-generating work.',
         solution: 'End-to-end intelligent automation pipelines that handle customer communications, sync CRM data, and streamline operations autonomously.',
@@ -301,7 +301,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
       },
       revenue: {
         id: 'revenue',
-        name: '📈 Unconverted Pipeline Recovery & Customer Re-engagement',
+        name: 'Unconverted Pipeline Recovery & Customer Re-engagement',
         tag: 'Pipeline Recovery',
         problem: 'Past proposals, unfinished quotes, and dormant inquiries represent tens of thousands in unrealized revenue that slip away without structured follow-ups.',
         solution: 'Personalized AI re-engagement campaigns that follow up with unclosed prospects, address their objections, and reactivate deals with zero ad spend.',
@@ -309,7 +309,7 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
       },
       ai_edge: {
         id: 'ai_edge',
-        name: '🏆 Custom AI Systems & High-Tech Competitive Edge',
+        name: 'Custom AI Systems & High-Tech Competitive Edge',
         tag: 'Custom AI Architecture',
         problem: 'Modern competitors are leveraging AI automation to lower operational costs and deliver instant customer service, leaving traditional operators vulnerable.',
         solution: 'A custom, domain-specific AI assistant trained on your exact offerings, workflows, and brand voice to scale capacity without increasing headcount.',
@@ -318,6 +318,17 @@ export const INDUSTRY_KNOWLEDGE_BASE = {
     }
   }
 };
+
+/**
+ * Strips all emojis and pictographs from text for strict professional deliverability
+ */
+export function stripEmojis(text = '') {
+  if (!text) return '';
+  return String(text)
+    .replace(/[\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE00}-\u{FE0F}\u{200D}]|\p{Extended_Pictographic}/gu, '')
+    .replace(/[ \t]{2,}/g, ' ')
+    .replace(/^[ \t]+|[ \t]+$/gm, '');
+}
 
 /**
  * Automatically diagnose the best problem, solution, and strategic angles for any lead
@@ -350,7 +361,7 @@ export function diagnoseLeadProblemSolution(lead = {}) {
     for (const wp of audit.weakPoints.slice(0, 4)) {
       auditAngles.push({
         id: `audit_${wp.id}`,
-        name: `${wp.severity === 'critical' ? '🚨' : wp.severity === 'high' ? '⚠️' : '🔍'} Website Flaw: ${wp.title}`,
+        name: `${wp.severity === 'critical' ? '[Critical]' : wp.severity === 'high' ? '[High]' : '[Notice]'} Website Flaw: ${wp.title}`,
         tag: wp.category.toUpperCase(),
         problem: wp.pitchHook || `${wp.evidence} ${wp.businessImpact}`,
         solution: wp.solution,
@@ -631,7 +642,7 @@ export function generateInitialOutreach({
 
   let body = '';
 
-  // 3. Compose body based on selected Tone
+  // 3. Compose body based on selected Tone (strictly NO emojis for high business deliverability)
   switch (tone) {
     case 'website_audit': {
       const weakPointsList = (audit && audit.weakPoints && audit.weakPoints.length > 0)
@@ -641,10 +652,10 @@ export function generateInitialOutreach({
       let weakPointsFormatted = '';
       if (weakPointsList && weakPointsList.length > 0) {
         weakPointsFormatted = weakPointsList.map((wp, i) => 
-          `${i + 1}. ❌ ${wp.title}\n   • Finding: ${wp.evidence}\n   • Impact: ${wp.businessImpact}`
+          `${i + 1}. [Issue] ${wp.title}\n   - Finding: ${wp.evidence}\n   - Impact: ${wp.businessImpact}`
         ).join('\n\n');
       } else {
-        weakPointsFormatted = `1. ❌ Conversion Leak: ${problem}`;
+        weakPointsFormatted = `1. [Conversion Bottleneck]: ${problem}`;
       }
 
       const techNote = detectedTech ? ` (running on ${detectedTech})` : '';
@@ -658,13 +669,13 @@ I noticed ${weakPointsList ? weakPointsList.length : 'a few'} specific bottlenec
 ${weakPointsFormatted}
 
 THE FIX:
-💡 ${solution}
+${solution}
 
 HOW WE HELP & ROI:
-🚀 ${howWeHelp}
+${howWeHelp}
 
 We typically resolve and deploy these fixes in 5 to 7 business days with zero disruption to your existing setup. You can review some of our live deployed workflow architectures and case studies here:
-👉 ${portfolioUrl}
+${portfolioUrl}
 
 I recorded a quick 2-minute walkthrough showing exactly where prospective clients are dropping off on ${cleanDomain || 'your site'} and how to fix it without rebuilding your website.
 
@@ -689,18 +700,18 @@ I came across ${company} across ${socialChannelsList} and noticed how active you
 One major leak we see for growing ${category} teams is that prospects message across multiple channels—website forms, Instagram DMs, Facebook pages, and after-hours calls—and when responses take more than 15 minutes, over 40% move on to another provider.
 
 THE PROBLEM:
-⚠️ ${problem}
+${problem}
 
 THE OMNICHANNEL SOLUTION:
-💡 We deploy a unified 24/7 AI Concierge across your Website, Instagram DMs, Facebook Messenger, and SMS that answers prospect questions in under 15 seconds, qualifies their needs, and books appointments directly onto your calendar.
+We deploy a unified 24/7 AI Concierge across your Website, Instagram DMs, Facebook Messenger, and SMS that answers prospect questions in under 15 seconds, qualifies their needs, and books appointments directly onto your calendar.
 
 HOW WE HELP:
-🚀 ${howWeHelp}
+${howWeHelp}
 
 Would you be open to a quick 10-minute demo this week to see how this works live for ${company}?
 
-📅 Book a 10-min slot: ${bookingLink}
-🌐 Live Portfolio & Architectures: ${portfolioUrl}
+Book a 10-min slot: ${bookingLink}
+Live Portfolio & Architectures: ${portfolioUrl}
 
 Best regards,
 
@@ -716,13 +727,13 @@ Direct: ${fromEmail}`;
 Floating this back to the top of your inbox in case it got buried during a busy week at ${company}.
 
 We recently helped a similar ${category} team eliminate slow lead follow-ups and recover missed after-hours inquiries within their first 10 days using:
-💡 ${solution}
+${solution}
 
 I put together a 2-minute custom architecture diagram for ${company} (${cleanDomain || 'your team'}) showing how this plugs into your current workflow with zero manual effort from your staff.
 
 Worth a quick 5-minute look this week, or should I email the diagram over directly?
 
-📅 Direct calendar: ${bookingLink}
+Direct calendar: ${bookingLink}
 
 Best regards,
 ${senderName}
@@ -737,7 +748,7 @@ I know things move fast at ${company}, so this will be my last note on this!
 Before I close out your file, I went ahead and configured a live, interactive AI intake & qualification prototype tailored specifically for ${company}'s ${category} services so you can test how it handles real client inquiries 24/7.
 
 There is zero cost or obligation—just reply "SEND" and I'll share the private test link, or grab a 10-minute slot on my calendar anytime if you ever want to explore automating client intake down the road:
-👉 ${bookingLink}
+${bookingLink}
 
 Wishing you and the ${company} team a great quarter ahead!
 
@@ -755,18 +766,18 @@ ${portfolioUrl}`;
 I was reviewing ${company}'s online presence (${cleanDomain || 'website'}) and noticed a high-leverage revenue opportunity:
 
 THE PROBLEM:
-⚠️ ${problem}
+${problem}
 
 THE SOLUTION:
-💡 ${solution}
+${solution}
 
 HOW WE HELP & ROI:
-🚀 ${howWeHelp}
+${howWeHelp}
 
 We typically deliver this turnkey system within 5–7 business days with measurable ROI from week one.
 
 Would you be open to a quick 10-minute walkthrough this week? You can pick a convenient slot here:
-📅 ${bookingLink}
+${bookingLink}
 
 Best regards,
 
@@ -783,18 +794,18 @@ Direct: ${fromEmail}`;
 I came across ${company}'s work in ${category} and wanted to reach out with a quick observation.
 
 Many teams in your space face this exact bottleneck:
-⚠️ "${problem}"
+"${problem}"
 
 The most reliable way forward is:
-💡 "${solution}"
+"${solution}"
 
 Specifically, how we help:
-🚀 "${howWeHelp}"
+"${howWeHelp}"
 
 Rather than pitching you cold, I'd love to send over a complimentary 2-page AI Feasibility & Conversion Audit prepared specifically for ${company}, showing exactly which parts of your intake workflow can be automated to save hours and recover lost inquiries.
 
 No cost or obligation—would it make sense to send that over today, or would you prefer a quick 10-minute screen share?
-📅 Direct Calendar: ${bookingLink}
+Direct Calendar: ${bookingLink}
 
 Best regards,
 
@@ -809,15 +820,15 @@ Case Studies & Live Models: ${portfolioUrl}`;
 Quick question—are you currently exploring ways to automate 24/7 client intake and follow-ups for ${company}?
 
 We recently built a turnkey AI workflow for a similar ${category} business that solves this exact issue:
-👉 ${problem}
+${problem}
 
 By deploying:
-💡 ${solution}
+${solution}
 
 We handle the entire setup end-to-end (${howWeHelp}).
 
 Open to a 5-minute look at how this works in practice?
-📅 Direct calendar: ${bookingLink}
+Direct calendar: ${bookingLink}
 
 Best,
 ${senderName}
@@ -831,20 +842,20 @@ ${portfolioUrl}`;
 I came across ${company} (${cleanDomain || 'your website'}) while researching leading businesses in ${category}${lead.address ? ` around ${lead.address}` : ''} and wanted to reach out directly.
 
 A common bottleneck we see affecting companies in your sector is:
-⚠️ ${problem}
+${problem}
 
 The most effective way modern teams are solving this is:
-💡 ${solution}
+${solution}
 
 Here is specifically how we help ${company}:
-🚀 ${howWeHelp}
+${howWeHelp}
 
 You can review some of my recent deployed AI models, automated workflow architectures, and case studies here:
-👉 ${portfolioUrl}
+${portfolioUrl}
 
 Would you be open to a quick 10-minute intro call or a free architectural audit this week to see if this makes sense for ${company}?
 
-📅 Schedule directly: ${bookingLink}
+Schedule directly: ${bookingLink}
 
 Best regards,
 
@@ -855,8 +866,13 @@ Email: ${fromEmail}`;
       break;
   }
 
+  // Sanitize all output text to ensure zero emojis are present
+  const sanitizedSubject = stripEmojis(subject);
+  const sanitizedSubjectOptions = subjectOptions.map(opt => stripEmojis(opt));
+  const sanitizedBody = stripEmojis(body);
+
   // Calculate deliverability & quality metrics
-  const words = body.trim().split(/\s+/).length;
+  const words = sanitizedBody.trim().split(/\s+/).length;
   const readingTimeSeconds = Math.max(12, Math.round((words / 200) * 60));
   const qualityScore = {
     wordCount: words,
@@ -868,18 +884,205 @@ Email: ${fromEmail}`;
   };
 
   return {
-    subject,
-    subjectOptions,
-    body,
+    subject: sanitizedSubject,
+    subjectOptions: sanitizedSubjectOptions,
+    body: sanitizedBody,
     tone,
     angle: selectedAngle,
-    problem,
-    solution,
-    howWeHelp,
+    problem: stripEmojis(problem),
+    solution: stripEmojis(solution),
+    howWeHelp: stripEmojis(howWeHelp),
     diagnosis,
     websiteAudit: audit,
     qualityScore,
     aiGenerated: true
+  };
+}
+
+/**
+ * Generate AI-tailored Direct Messages for Instagram, LinkedIn, WhatsApp, and SMS/X
+ * Strictly without emojis, tuned for each channel's character limits and style.
+ */
+export function generateMultiChannelMessages({
+  lead,
+  angleId = null,
+  customProblem = null,
+  customSolution = null,
+  customHowWeHelp = null
+}) {
+  const settings = db.getSettings();
+  const aiConfig = settings.ai || {};
+  const senderName = aiConfig.senderName || 'Arbaz Khan';
+  const portfolioUrl = aiConfig.portfolioUrl || 'https://arbazkhaan.vercel.app/';
+  const bookingLink = aiConfig.bookingLink || 'https://arbazkhaan.vercel.app/#contact';
+
+  let leadFirstName = 'there';
+  if (lead.name && !lead.name.includes('Owner') && !lead.name.includes('Principal') && !lead.name.includes('Decision Maker')) {
+    const parts = lead.name.trim().split(/\s+/);
+    if (/^(dr\.?|doctor|attorney|mr\.?|ms\.?|mrs\.?)/i.test(parts[0]) && parts.length > 1) {
+      leadFirstName = `${parts[0]} ${parts[parts.length - 1]}`;
+    } else {
+      leadFirstName = parts[0];
+    }
+  }
+  const company = lead.company || 'your team';
+  const category = lead.category || 'business';
+
+  // 1. Get diagnosis
+  const diagnosis = diagnoseLeadProblemSolution(lead);
+  let selectedAngle = diagnosis.primaryAngle;
+  if (angleId) {
+    const found = diagnosis.angles.find(a => a.id === angleId);
+    if (found) selectedAngle = found;
+  }
+
+  const problem = customProblem || selectedAngle.problem;
+  const solution = customSolution || selectedAngle.solution;
+  const cleanDomain = lead.website ? lead.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '') : '';
+
+  // 1. WHATSAPP: Concise, conversational, direct value hook, quick action
+  const whatsappMessage = stripEmojis(
+    `Hi ${leadFirstName}, came across ${company} and noticed a high-leverage opportunity to automate your customer intake and follow-ups 24/7 so inquiries never drop off.\n\nWe recently helped a similar ${category} team resolve this exact issue: ${solution}.\n\nWould you be open to a quick 5-min chat or demo this week? Here is our portfolio & case studies: ${portfolioUrl}`
+  );
+
+  // 2. INSTAGRAM DM: Casual, punchy, creator/business-friendly
+  const instagramMessage = stripEmojis(
+    `Hey ${leadFirstName}! Love what you're doing with ${company}. Quick question—are you guys handling all inbound DMs and booking inquiries manually right now? We build custom AI intake concierges that reply in under 30s and book qualified clients directly into your calendar. Open to a quick 2-minute video walkthrough showing how this would work for your page?`
+  );
+
+  // 3. LINKEDIN CONNECTION NOTE: Strict < 300 char limit
+  let linkedinNote = stripEmojis(
+    `Hi ${leadFirstName}, came across your work leading ${company}. We build turnkey AI workflows that automate client intake and follow-ups for ${category} teams. Would love to connect and share a quick architecture diagram if you are open to it!`
+  );
+  if (linkedinNote.length > 295) {
+    linkedinNote = stripEmojis(
+      `Hi ${leadFirstName}, noticed your work at ${company}. We help ${category} teams automate client intake and bookings 24/7 with custom AI. Would love to connect!`
+    );
+  }
+
+  // 4. LINKEDIN INMAIL / DIRECT MESSAGE: B2B Executive tone
+  const linkedinInMail = stripEmojis(
+    `Hi ${leadFirstName},\n\nI was looking into ${company}${cleanDomain ? ` (${cleanDomain})` : ''} and wanted to reach out directly.\n\nA primary bottleneck we see for ${category} teams is: ${problem}.\n\nWe deploy turnkey AI intake systems that pre-qualify prospects in under 30 seconds and book qualified meetings on your calendar with zero manual staff overhead.\n\nWould you be open to a quick 10-minute check-in this week to see our live architecture? Here is my direct booking link: ${bookingLink}\n\nBest regards,\n${senderName}\n${portfolioUrl}`
+  );
+
+  // 5. SMS / TEXT MESSAGE: Ultra-short mobile hook
+  const smsMessage = stripEmojis(
+    `Hi ${leadFirstName}, this is ${senderName}. Was checking out ${company} and had a quick idea to help automate after-hours inquiry replies and booking confirmations. Open to a quick 5-min look this week? Calendar: ${bookingLink}`
+  );
+
+  // 6. TWITTER / X DM: Friendly, concise
+  const twitterMessage = stripEmojis(
+    `Hey ${leadFirstName}! Reaching out regarding ${company}. We build custom AI automation for ${category} teams to capture after-hours inquiries instantly. Would love to send over a quick 2-min demo if you are exploring intake automation!`
+  );
+
+  const messages = {
+    whatsapp: whatsappMessage,
+    instagram: instagramMessage,
+    linkedin_note: linkedinNote,
+    linkedin_inmail: linkedinInMail,
+    sms: smsMessage,
+    twitter: twitterMessage
+  };
+
+  const redirects = buildChannelRedirectUrls({ lead, messages });
+
+  return {
+    messages,
+    redirects,
+    leadId: lead.id,
+    angle: selectedAngle
+  };
+}
+
+/**
+ * Builds direct launch / redirect URLs for WhatsApp, Instagram, LinkedIn, SMS, Twitter
+ */
+export function buildChannelRedirectUrls({ lead = {}, messages = {} }) {
+  const cleanPhone = (lead.phone || '').replace(/[^0-9]/g, '');
+  const waPhone = cleanPhone.length === 10 ? `1${cleanPhone}` : cleanPhone;
+  
+  // Instagram handle & URLs
+  let igHandle = (lead.socials?.instagramHandle || '').replace(/^@/, '');
+  const igUrl = lead.socials?.instagram || lead.instagramUrl || '';
+  if (!igHandle && igUrl) {
+    const m = igUrl.match(/instagram\.com\/([a-zA-Z0-9._]+)/i);
+    if (m && m[1] && !['p', 'explore', 'reel', 'stories'].includes(m[1].toLowerCase())) {
+      igHandle = m[1];
+    }
+  }
+
+  // LinkedIn URLs
+  const liUrl = lead.socials?.linkedin || lead.linkedinUrl || lead.linkedinPeopleUrl || '';
+  
+  // Twitter handle
+  let twitterHandle = (lead.socials?.twitter || '').replace(/^https?:\/\/(www\.)?(twitter|x)\.com\//i, '').replace(/^@/, '').split('/')[0].split('?')[0];
+
+  // WhatsApp wa.me link with encoded text
+  const waUrl = waPhone
+    ? `https://wa.me/${waPhone}?text=${encodeURIComponent(messages.whatsapp || '')}`
+    : `https://wa.me/?text=${encodeURIComponent(messages.whatsapp || '')}`;
+
+  // Instagram direct message links
+  const igDmUrl = igHandle
+    ? `https://ig.me/m/${igHandle}`
+    : (igUrl || `https://www.instagram.com/direct/inbox/`);
+
+  // LinkedIn messaging / profile URL
+  const linkedInUrl = liUrl || `https://www.linkedin.com/search/results/all/?keywords=${encodeURIComponent(lead.company || '')}`;
+
+  // SMS direct intent link
+  const smsUrl = cleanPhone
+    ? `sms:${cleanPhone}?body=${encodeURIComponent(messages.sms || '')}`
+    : '';
+
+  // Twitter/X URL
+  const twitterUrl = twitterHandle
+    ? `https://twitter.com/${twitterHandle}`
+    : (lead.socials?.twitter || 'https://twitter.com/messages');
+
+  return {
+    whatsapp: {
+      channel: 'whatsapp',
+      name: 'WhatsApp',
+      url: waUrl,
+      target: waPhone ? `+${waPhone}` : '',
+      hasTarget: Boolean(cleanPhone),
+      fallbackUrl: `https://web.whatsapp.com/send?text=${encodeURIComponent(messages.whatsapp || '')}`,
+      actionLabel: 'Launch WhatsApp Chat'
+    },
+    instagram: {
+      channel: 'instagram',
+      name: 'Instagram',
+      url: igDmUrl,
+      profileUrl: igHandle ? `https://www.instagram.com/${igHandle}/` : igUrl,
+      target: igHandle ? `@${igHandle}` : (igUrl ? 'Profile Link' : ''),
+      hasTarget: Boolean(igHandle || igUrl),
+      actionLabel: 'Open Instagram DM'
+    },
+    linkedin: {
+      channel: 'linkedin',
+      name: 'LinkedIn',
+      url: linkedInUrl,
+      target: liUrl ? (liUrl.includes('/in/') ? 'Personal Profile' : 'Company Page') : '',
+      hasTarget: Boolean(liUrl),
+      actionLabel: 'Open LinkedIn Profile & InMail'
+    },
+    sms: {
+      channel: 'sms',
+      name: 'Direct SMS',
+      url: smsUrl,
+      target: cleanPhone ? `+${cleanPhone}` : '',
+      hasTarget: Boolean(cleanPhone),
+      actionLabel: 'Send Text / SMS'
+    },
+    twitter: {
+      channel: 'twitter',
+      name: 'X (Twitter)',
+      url: twitterUrl,
+      target: twitterHandle ? `@${twitterHandle}` : '',
+      hasTarget: Boolean(twitterHandle || lead.socials?.twitter),
+      actionLabel: 'Open X / Twitter DM'
+    }
   };
 }
 
@@ -941,7 +1144,7 @@ function generateBuiltInSalesReply({ lead, thread, clientReplyText, aiConfig, an
 Thrilled to hear that! We're excited to partner with ${company} and solve ${activeAngle.tag.toLowerCase()} once and for all.
 
 I've generated our streamlined onboarding link and service kickoff here:
-👉 ${bookingLink} (or simply reply with the best billing email address for your team).
+${bookingLink} (or simply reply with the best billing email address for your team).
 
 Once confirmed:
 1. We immediately begin configuring your dedicated AI pipeline.
@@ -962,7 +1165,7 @@ ${aiConfig.senderTitle || 'AI Engineer & Systems Architect'} | ${businessName}`;
 I'd be glad to walk you through our exact AI system and show you a live interactive demo tailored for ${company}.
 
 You can select whatever 15-minute slot works best for your schedule right here:
-📅 ${bookingLink}
+${bookingLink}
 
 Alternatively, I am available tomorrow at 2:00 PM or Thursday at 11:00 AM EST if either of those suits you better.
 
@@ -1094,8 +1297,8 @@ ${businessName}`;
   }
 
   return {
-    subject,
-    body,
+    subject: stripEmojis(subject),
+    body: stripEmojis(body),
     analysis,
     closingAction,
     aiGenerated: true
@@ -1112,6 +1315,7 @@ Client's message: "${clientReplyText}".
 Detected Intent: ${analysis.intent}.
 Target Solution: ${problemSolutionAngle ? problemSolutionAngle.solution : 'Custom AI Automation'}.
 Calendar Link: ${aiConfig.bookingLink || 'https://arbazkhaan.vercel.app/#contact'}.
+CRITICAL INSTRUCTION: Do NOT include any emojis anywhere in the email subject or body. Output clean professional business text only without emojis.
 Write a persuasive, concise, professional email reply addressing their specific point and guiding them to book a quick call. Return JSON with "subject" and "body".`;
 
   const res = await axios.post(
@@ -1129,8 +1333,8 @@ Write a persuasive, concise, professional email reply addressing their specific 
 
   const parsed = JSON.parse(res.data.choices[0].message.content);
   return {
-    subject: parsed.subject || `Re: Discussion with ${lead.company}`,
-    body: parsed.body,
+    subject: stripEmojis(parsed.subject || `Re: Discussion with ${lead.company}`),
+    body: stripEmojis(parsed.body),
     analysis,
     closingAction: 'OpenAI custom-generated sales response',
     aiGenerated: true
@@ -1146,6 +1350,7 @@ The client is ${lead.name || 'Decision Maker'} at ${lead.company} (${lead.catego
 Client's message: "${clientReplyText}".
 Detected Intent: ${analysis.intent}.
 Calendar Link: ${aiConfig.bookingLink || 'https://arbazkhaan.vercel.app/#contact'}.
+CRITICAL INSTRUCTION: Do NOT include any emojis anywhere in the email subject or body. Output clean professional business text only without emojis.
 Write a persuasive, concise, professional email reply addressing their specific point and guiding them to book a quick call.`;
 
   const res = await axios.post(
@@ -1158,8 +1363,8 @@ Write a persuasive, concise, professional email reply addressing their specific 
 
   const text = res.data.candidates[0].content.parts[0].text;
   return {
-    subject: `Re: Discussion with ${lead.company}`,
-    body: text,
+    subject: stripEmojis(`Re: Discussion with ${lead.company}`),
+    body: stripEmojis(text),
     analysis,
     closingAction: 'Gemini custom-generated sales response',
     aiGenerated: true
@@ -1168,9 +1373,12 @@ Write a persuasive, concise, professional email reply addressing their specific 
 
 export default {
   INDUSTRY_KNOWLEDGE_BASE,
+  stripEmojis,
   diagnoseLeadProblemSolution,
   analyzeClientReply,
   generateSubjectOptions,
   generateInitialOutreach,
-  generateAiReply
+  generateAiReply,
+  generateMultiChannelMessages,
+  buildChannelRedirectUrls
 };

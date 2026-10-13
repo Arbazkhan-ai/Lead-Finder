@@ -99,7 +99,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-[#090d16] text-slate-100 flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
+    <div className="min-h-screen bg-slate-50/70 text-slate-900 flex flex-col font-['Plus_Jakarta_Sans',sans-serif]">
       
       {/* Top Navigation */}
       <Navbar

@@ -50,6 +50,7 @@ export const api = {
     diagnoseLead: (leadId, leadData = null) => request('/outreach/diagnose-lead', { method: 'POST', body: { leadId, leadData } }),
     sendEmail: (data) => request('/outreach/send', { method: 'POST', body: data }),
     generatePitch: (leadId, options = {}) => request('/outreach/generate-pitch', { method: 'POST', body: { leadId, ...options } }),
+    generateChannels: (leadId, options = {}) => request('/outreach/generate-channels', { method: 'POST', body: { leadId, ...options } }),
     generateReply: (leadId, clientReplyText, problemSolutionAngle = null) => request('/outreach/generate-reply', { method: 'POST', body: { leadId, clientReplyText, problemSolutionAngle } }),
     simulateReply: (leadId, replyText, subject) => request('/outreach/simulate-reply', { method: 'POST', body: { leadId, replyText, subject } }),
     autoSend: (leadId, toEmail, extra = {}) => request('/outreach/auto-send', { method: 'POST', body: { leadId, toEmail, ...extra } }),
