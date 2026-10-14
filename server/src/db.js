@@ -6,12 +6,23 @@ import { getLeadFingerprints, isSameLead, mergeLeadInfo } from './services/leadD
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
-const DATA_DIR = path.join(__dirname, '..', 'data');
+const LOCAL_DATA_DIR = path.join(__dirname, '..', 'data');
+const SEED_DB_FILE = path.join(LOCAL_DATA_DIR, 'database.json');
+const DATA_DIR = process.env.VERCEL ? path.join('/tmp', 'data') : LOCAL_DATA_DIR;
 const DB_FILE = path.join(DATA_DIR, 'database.json');
 
 // Ensure data directory exists
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });
+}
+
+// On Vercel, seed DB from repository if /tmp/data/database.json doesn't exist yet
+if (process.env.VERCEL && !fs.existsSync(DB_FILE) && fs.existsSync(SEED_DB_FILE)) {
+  try {
+    fs.copyFileSync(SEED_DB_FILE, DB_FILE);
+  } catch (err) {
+    console.warn('Could not seed database file to /tmp:', err);
+  }
 }
 
 const defaultSettings = {

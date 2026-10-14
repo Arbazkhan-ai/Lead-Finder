@@ -6,8 +6,9 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Save all generated Excel files into d:\Lead-Finder\exports
-export const EXPORTS_DIR = path.join(__dirname, '..', '..', '..', 'exports');
+// Save all generated Excel files into exports folder (or /tmp/exports on Vercel)
+const LOCAL_EXPORTS_DIR = path.join(__dirname, '..', '..', '..', 'exports');
+export const EXPORTS_DIR = process.env.VERCEL ? path.join('/tmp', 'exports') : LOCAL_EXPORTS_DIR;
 
 if (!fs.existsSync(EXPORTS_DIR)) {
   fs.mkdirSync(EXPORTS_DIR, { recursive: true });

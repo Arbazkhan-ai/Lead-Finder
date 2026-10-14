@@ -53,6 +53,11 @@ app.use((err, req, res, next) => {
   res.status(500).json({ success: false, error: err.message || 'Internal Server Error' });
 });
 
-app.listen(PORT, () => {
-  console.log(`🚀 AI Lead Finder Server running on http://localhost:${PORT}`);
-});
+if (!process.env.VERCEL) {
+  app.listen(PORT, () => {
+    console.log(`🚀 AI Lead Finder Server running on http://localhost:${PORT}`);
+  });
+}
+
+export default app;
+
