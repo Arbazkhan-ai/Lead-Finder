@@ -27,32 +27,34 @@ if (process.env.VERCEL && !fs.existsSync(DB_FILE) && fs.existsSync(SEED_DB_FILE)
 
 const defaultSettings = {
   smtp: {
-    host: 'smtp.gmail.com',
-    port: 587,
-    user: 'arbazkhanofficial@gmail.com',
-    pass: '',
-    fromName: 'Arbaz Khan',
-    fromEmail: 'arbazkhanofficial@gmail.com',
-    secure: false,
-    simulatedMode: true // When true, emails are logged & simulated without requiring real SMTP credentials
+    host: process.env.SMTP_HOST || 'smtp.gmail.com',
+    port: Number(process.env.SMTP_PORT) || 587,
+    user: process.env.SMTP_USER || 'arbazkhanofficial@gmail.com',
+    pass: process.env.SMTP_PASS || '',
+    fromName: process.env.SMTP_FROM_NAME || 'Arbaz Khan',
+    fromEmail: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || 'arbazkhanofficial@gmail.com',
+    secure: process.env.SMTP_SECURE === 'true',
+    simulatedMode: process.env.SMTP_SIMULATED_MODE !== undefined 
+      ? process.env.SMTP_SIMULATED_MODE === 'true' 
+      : (process.env.SMTP_PASS ? false : true)
   },
   ai: {
-    provider: 'built_in', // 'built_in' | 'openai' | 'gemini'
-    apiKey: '',
-    businessName: 'Arbaz Khan — AI Systems & Engineering',
-    senderName: 'Arbaz Khan',
-    senderTitle: 'AI Engineer & Systems Architect',
-    productService: 'Custom AI Solutions, LLM/LangChain Pipelines, Computer Vision & Intelligent Web Systems',
-    pitchOffer: 'I build production-grade AI systems, intelligent automation pipelines, and custom ML solutions that solve high-impact business problems. You can explore my live portfolio and case studies here: https://arbazkhaan.vercel.app/',
-    pricingModel: 'Project-Based & Retainers: Starting at $1,500. Special Offer: Free AI architectural audit & risk-free proof of concept.',
-    bookingLink: 'https://arbazkhaan.vercel.app/#contact',
-    portfolioUrl: 'https://arbazkhaan.vercel.app/',
+    provider: process.env.AI_PROVIDER || 'built_in', // 'built_in' | 'openai' | 'gemini'
+    apiKey: process.env.OPENAI_API_KEY || process.env.GEMINI_API_KEY || process.env.AI_API_KEY || '',
+    businessName: process.env.BUSINESS_NAME || 'Arbaz Khan — AI Systems & Engineering',
+    senderName: process.env.SENDER_NAME || 'Arbaz Khan',
+    senderTitle: process.env.SENDER_TITLE || 'AI Engineer & Systems Architect',
+    productService: process.env.PRODUCT_SERVICE || 'Custom AI Solutions, LLM/LangChain Pipelines, Computer Vision & Intelligent Web Systems',
+    pitchOffer: process.env.PITCH_OFFER || 'I build production-grade AI systems, intelligent automation pipelines, and custom ML solutions that solve high-impact business problems. You can explore my live portfolio and case studies here: https://arbazkhaan.vercel.app/',
+    pricingModel: process.env.PRICING_MODEL || 'Project-Based & Retainers: Starting at $1,500. Special Offer: Free AI architectural audit & risk-free proof of concept.',
+    bookingLink: process.env.BOOKING_LINK || 'https://arbazkhaan.vercel.app/#contact',
+    portfolioUrl: process.env.PORTFOLIO_URL || 'https://arbazkhaan.vercel.app/',
     tone: 'persuasive_professional',
     autopilot: true,
     autoReplyDelaySeconds: 4
   },
-  serpApiKey: '',
-  googlePlacesApiKey: ''
+  serpApiKey: process.env.SERP_API_KEY || '',
+  googlePlacesApiKey: process.env.GOOGLE_PLACES_API_KEY || ''
 };
 
 const defaultLeads = [];
@@ -78,7 +80,21 @@ class Database {
         // Ensure keys exist
         if (!this.data.leads) this.data.leads = defaultLeads;
         if (!this.data.emails) this.data.emails = defaultEmails;
-        if (!this.data.settings) this.data.settings = defaultSettings;
+        if (!this.data.settings) {
+          this.data.settings = defaultSettings;
+        } else {
+          if (process.env.SMTP_PASS && !this.data.settings.smtp?.pass) {
+            if (!this.data.settings.smtp) this.data.settings.smtp = {};
+            this.data.settings.smtp.pass = process.env.SMTP_PASS;
+            this.data.settings.smtp.simulatedMode = false;
+          }
+          if (process.env.SERP_API_KEY && !this.data.settings.serpApiKey) {
+            this.data.settings.serpApiKey = process.env.SERP_API_KEY;
+          }
+          if (process.env.GOOGLE_PLACES_API_KEY && !this.data.settings.googlePlacesApiKey) {
+            this.data.settings.googlePlacesApiKey = process.env.GOOGLE_PLACES_API_KEY;
+          }
+        }
         if (!this.data.activityLogs) this.data.activityLogs = [];
         if (!this.data.generatedLeadsHistory) this.data.generatedLeadsHistory = [];
       } else {

@@ -9,10 +9,39 @@ import SettingsModal from './components/SettingsModal';
 import api from './api/client';
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState('dashboard');
+  const [activeTab, setActiveTabState] = useState(() => {
+    try {
+      return localStorage.getItem('leads_finder_active_tab') || 'dashboard';
+    } catch (_) {
+      return 'dashboard';
+    }
+  });
+
+  const setActiveTab = (tab) => {
+    setActiveTabState(tab);
+    try {
+      localStorage.setItem('leads_finder_active_tab', tab);
+    } catch (_) {}
+  };
+
   const [leads, setLeads] = useState([]);
   const [stats, setStats] = useState(null);
-  const [settings, setSettings] = useState(null);
+  const [settings, setSettingsState] = useState(() => {
+    try {
+      const saved = localStorage.getItem('leads_finder_settings');
+      return saved ? JSON.parse(saved) : null;
+    } catch (_) {
+      return null;
+    }
+  });
+
+  const setSettings = (newSettings) => {
+    setSettingsState(newSettings);
+    try {
+      localStorage.setItem('leads_finder_settings', JSON.stringify(newSettings));
+    } catch (_) {}
+  };
+
   const [isLoading, setIsLoading] = useState(true);
 
   // Modals & Navigation state
@@ -29,13 +58,51 @@ export default function App() {
     setIsLoading(true);
     try {
       const [leadsRes, statsRes, settingsRes] = await Promise.all([
-        api.leads.getAll(),
-        api.analytics.getStats(),
-        api.settings.get()
+        api.leads.getAll().catch(() => ({ leads: [] })),
+        api.analytics.getStats().catch(() => ({ stats: null })),
+        api.settings.get().catch(() => ({ settings: null }))
       ]);
-      setLeads(leadsRes.leads || []);
-      setStats(statsRes.stats || null);
-      setSettings(settingsRes.settings || null);
+
+      let serverSettings = settingsRes?.settings || null;
+      let localSettings = null;
+      try {
+        const raw = localStorage.getItem('leads_finder_settings');
+        if (raw) localSettings = JSON.parse(raw);
+      } catch (_) {}
+
+      // If local settings exist, merge with server settings so configuration is NEVER lost across refreshes
+      if (localSettings) {
+        const mergedSettings = {
+          ...serverSettings,
+          ...localSettings,
+          smtp: { ...(serverSettings?.smtp || {}), ...(localSettings?.smtp || {}) },
+          ai: { ...(serverSettings?.ai || {}), ...(localSettings?.ai || {}) }
+        };
+        serverSettings = mergedSettings;
+        setSettings(mergedSettings);
+
+        // If server was reset (e.g. serverless cold start), sync user's saved settings to the server
+        const serverNeedsSync = !settingsRes?.settings?.smtp?.pass && localSettings?.smtp?.pass;
+        if (serverNeedsSync) {
+          api.settings.update(mergedSettings).catch(() => {});
+        }
+      } else if (serverSettings) {
+        setSettings(serverSettings);
+      }
+
+      const fetchedLeads = leadsRes?.leads || [];
+      setLeads(fetchedLeads);
+      setStats(statsRes?.stats || null);
+
+      // Re-select previously selected lead from localStorage if applicable
+      try {
+        const savedLeadId = localStorage.getItem('leads_finder_selected_lead_id');
+        if (savedLeadId && fetchedLeads.length > 0) {
+          const matched = fetchedLeads.find(l => l.id === savedLeadId);
+          if (matched) setSelectedLeadForOutreach(matched);
+        }
+      } catch (_) {}
+
     } catch (err) {
       console.error('Failed to load platform data:', err);
     } finally {
@@ -58,6 +125,9 @@ export default function App() {
 
   const handleStartOutreach = (lead) => {
     setSelectedLeadForOutreach(lead);
+    try {
+      if (lead?.id) localStorage.setItem('leads_finder_selected_lead_id', lead.id);
+    } catch (_) {}
     setActiveTab('conversations');
   };
 

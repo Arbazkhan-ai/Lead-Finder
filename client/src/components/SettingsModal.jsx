@@ -6,32 +6,41 @@ export default function SettingsModal({ isOpen, onClose, settings, onSettingsUpd
   if (!isOpen) return null;
 
   const [activeTab, setActiveTab] = useState('ai'); // 'ai' | 'smtp' | 'maps'
-  const [formData, setFormData] = useState({
-    serpApiKey: settings?.serpApiKey || '',
-    googlePlacesApiKey: settings?.googlePlacesApiKey || '',
-    smtp: {
-      host: settings?.smtp?.host || 'smtp.gmail.com',
-      port: settings?.smtp?.port || 587,
-      user: settings?.smtp?.user || 'arbazkhanofficial@gmail.com',
-      pass: settings?.smtp?.pass || '',
-      fromName: settings?.smtp?.fromName || 'Arbaz Khan',
-      fromEmail: settings?.smtp?.fromEmail || 'arbazkhanofficial@gmail.com',
-      secure: settings?.smtp?.secure || false,
-      simulatedMode: settings?.smtp?.simulatedMode ?? true
-    },
-    ai: {
-      provider: settings?.ai?.provider || 'built_in',
-      apiKey: settings?.ai?.apiKey || '',
-      businessName: settings?.ai?.businessName || 'Arbaz Khan — AI Systems & Engineering',
-      senderName: settings?.ai?.senderName || 'Arbaz Khan',
-      senderTitle: settings?.ai?.senderTitle || 'AI Engineer & Systems Architect',
-      productService: settings?.ai?.productService || 'Custom AI Solutions, LLM Pipelines & Intelligent Systems',
-      pitchOffer: settings?.ai?.pitchOffer || 'I build production-grade AI systems, intelligent automation pipelines, and custom ML solutions that solve high-impact business problems. Portfolio: https://arbazkhaan.vercel.app/',
-      pricingModel: settings?.ai?.pricingModel || 'Project-Based & Retainers: Starting at $1,500. Special Offer: Free AI architectural audit & risk-free proof of concept.',
-      bookingLink: settings?.ai?.bookingLink || 'https://arbazkhaan.vercel.app/#contact',
-      portfolioUrl: settings?.ai?.portfolioUrl || 'https://arbazkhaan.vercel.app/',
-      autopilot: settings?.ai?.autopilot ?? true
-    }
+  const [formData, setFormData] = useState(() => {
+    let localSaved = null;
+    try {
+      const raw = localStorage.getItem('leads_finder_settings');
+      if (raw) localSaved = JSON.parse(raw);
+    } catch (_) {}
+
+    const src = localSaved || settings || {};
+    return {
+      serpApiKey: src?.serpApiKey || settings?.serpApiKey || '',
+      googlePlacesApiKey: src?.googlePlacesApiKey || settings?.googlePlacesApiKey || '',
+      smtp: {
+        host: src?.smtp?.host || settings?.smtp?.host || 'smtp.gmail.com',
+        port: src?.smtp?.port || settings?.smtp?.port || 587,
+        user: src?.smtp?.user || settings?.smtp?.user || 'arbazkhanofficial@gmail.com',
+        pass: src?.smtp?.pass || settings?.smtp?.pass || '',
+        fromName: src?.smtp?.fromName || settings?.smtp?.fromName || 'Arbaz Khan',
+        fromEmail: src?.smtp?.fromEmail || settings?.smtp?.fromEmail || 'arbazkhanofficial@gmail.com',
+        secure: src?.smtp?.secure ?? settings?.smtp?.secure ?? false,
+        simulatedMode: src?.smtp?.simulatedMode ?? settings?.smtp?.simulatedMode ?? true
+      },
+      ai: {
+        provider: src?.ai?.provider || settings?.ai?.provider || 'built_in',
+        apiKey: src?.ai?.apiKey || settings?.ai?.apiKey || '',
+        businessName: src?.ai?.businessName || settings?.ai?.businessName || 'Arbaz Khan — AI Systems & Engineering',
+        senderName: src?.ai?.senderName || settings?.ai?.senderName || 'Arbaz Khan',
+        senderTitle: src?.ai?.senderTitle || settings?.ai?.senderTitle || 'AI Engineer & Systems Architect',
+        productService: src?.ai?.productService || settings?.ai?.productService || 'Custom AI Solutions, LLM Pipelines & Intelligent Systems',
+        pitchOffer: src?.ai?.pitchOffer || settings?.ai?.pitchOffer || 'I build production-grade AI systems, intelligent automation pipelines, and custom ML solutions that solve high-impact business problems. Portfolio: https://arbazkhaan.vercel.app/',
+        pricingModel: src?.ai?.pricingModel || settings?.ai?.pricingModel || 'Project-Based & Retainers: Starting at $1,500. Special Offer: Free AI architectural audit & risk-free proof of concept.',
+        bookingLink: src?.ai?.bookingLink || settings?.ai?.bookingLink || 'https://arbazkhaan.vercel.app/#contact',
+        portfolioUrl: src?.ai?.portfolioUrl || settings?.ai?.portfolioUrl || 'https://arbazkhaan.vercel.app/',
+        autopilot: src?.ai?.autopilot ?? settings?.ai?.autopilot ?? true
+      }
+    };
   });
 
   const [isSaving, setIsSaving] = useState(false);
@@ -62,16 +71,22 @@ export default function SettingsModal({ isOpen, onClose, settings, onSettingsUpd
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSaving(true);
+    // Persist to localStorage immediately so a browser refresh never loses these settings
+    try {
+      localStorage.setItem('leads_finder_settings', JSON.stringify(formData));
+    } catch (_) {}
+
     try {
       const res = await api.settings.update(formData);
-      if (onSettingsUpdated) onSettingsUpdated(res.settings);
+      if (onSettingsUpdated) onSettingsUpdated(res.settings || formData);
       setSavedNotice(true);
       setTimeout(() => {
         setSavedNotice(false);
         onClose();
       }, 1000);
     } catch (err) {
-      alert('Failed to save settings: ' + err.message);
+      if (onSettingsUpdated) onSettingsUpdated(formData);
+      alert('Settings saved in browser storage! (Backend response: ' + err.message + ')');
     } finally {
       setIsSaving(false);
     }

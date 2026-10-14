@@ -87,6 +87,9 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
   useEffect(() => {
     if (selectedLead) {
       setRecipientEmail(selectedLead.email || '');
+      try {
+        if (selectedLead.id) localStorage.setItem('leads_finder_selected_lead_id', selectedLead.id);
+      } catch (_) {}
       loadLeadDetails(selectedLead);
     }
   }, [selectedLead?.id]);
@@ -96,7 +99,12 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
     if (initialLead) {
       setSelectedLead(initialLead);
     } else if (!selectedLead && leads.length > 0) {
-      setSelectedLead(leads[0]);
+      let matched = null;
+      try {
+        const savedId = localStorage.getItem('leads_finder_selected_lead_id');
+        if (savedId) matched = leads.find(l => l.id === savedId);
+      } catch (_) {}
+      setSelectedLead(matched || leads[0]);
     }
   }, [initialLead, leads]);
 
