@@ -2,10 +2,17 @@ import React, { useState } from 'react';
 import { X, Save, Bot, Mail, ShieldCheck, Sparkles, Check, CheckCircle2, MapPin, Key } from 'lucide-react';
 import api from '../api/client';
 
-export default function SettingsModal({ isOpen, onClose, settings, onSettingsUpdated }) {
+export default function SettingsModal({ isOpen, onClose, settings, onSettingsUpdated, initialTab = 'ai' }) {
   if (!isOpen) return null;
 
-  const [activeTab, setActiveTab] = useState('ai'); // 'ai' | 'smtp' | 'maps'
+  const [activeTab, setActiveTab] = useState(initialTab || 'ai');
+
+  React.useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab);
+    }
+  }, [initialTab, isOpen]);
+
   const [formData, setFormData] = useState(() => {
     let localSaved = null;
     try {
@@ -25,7 +32,7 @@ export default function SettingsModal({ isOpen, onClose, settings, onSettingsUpd
         fromName: src?.smtp?.fromName || settings?.smtp?.fromName || 'Arbaz Khan',
         fromEmail: src?.smtp?.fromEmail || settings?.smtp?.fromEmail || 'arbazkhanofficial@gmail.com',
         secure: src?.smtp?.secure ?? settings?.smtp?.secure ?? false,
-        simulatedMode: src?.smtp?.simulatedMode ?? settings?.smtp?.simulatedMode ?? true
+        simulatedMode: src?.smtp?.simulatedMode ?? settings?.smtp?.simulatedMode ?? false
       },
       ai: {
         provider: src?.ai?.provider || settings?.ai?.provider || 'built_in',
@@ -53,9 +60,29 @@ export default function SettingsModal({ isOpen, onClose, settings, onSettingsUpd
     setSmtpTestResult(null);
     try {
       const res = await api.settings.testSmtp(formData.smtp);
+
+      // Auto-enable live sending and auto-save on successful test!
+      const autoSaved = {
+        ...formData,
+        smtp: {
+          ...formData.smtp,
+          simulatedMode: false
+        }
+      };
+      setFormData(autoSaved);
+      try {
+        localStorage.setItem('leads_finder_settings', JSON.stringify(autoSaved));
+      } catch (_) {}
+
+      api.settings.update(autoSaved).then(r => {
+        if (onSettingsUpdated) onSettingsUpdated(r.settings || autoSaved);
+      }).catch(() => {
+        if (onSettingsUpdated) onSettingsUpdated(autoSaved);
+      });
+
       setSmtpTestResult({
         success: true,
-        message: `✓ SMTP Connected! A real test email was delivered to ${res.recipient || formData.smtp.user}. Check your inbox!`
+        message: `✓ SMTP Connected! Real test email was delivered to ${res.recipient || formData.smtp.user}. Safe Testing & Simulation Mode was automatically turned OFF!`
       });
     } catch (err) {
       setSmtpTestResult({

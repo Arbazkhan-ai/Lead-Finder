@@ -16,8 +16,26 @@ function stripEmojis(text = '') {
     .replace(/^[ \t]+|[ \t]+$/gm, '');
 }
 
-export default function ConversationHub({ initialLead, leads, onLeadUpdated, settings, onOpenSettings }) {
+export default function ConversationHub({ initialLead, leads, onLeadUpdated, settings, onSettingsUpdated, onOpenSettings }) {
   const [selectedLead, setSelectedLead] = useState(initialLead || leads[0] || null);
+
+  const handleToggleLiveSending = async () => {
+    const updatedSettings = {
+      ...settings,
+      smtp: {
+        ...(settings?.smtp || {}),
+        simulatedMode: false
+      }
+    };
+    try {
+      localStorage.setItem('leads_finder_settings', JSON.stringify(updatedSettings));
+      if (onSettingsUpdated) onSettingsUpdated(updatedSettings);
+      await api.settings.update(updatedSettings);
+    } catch (err) {
+      console.warn('Backend sync failed, saved locally:', err);
+    }
+  };
+
   const [thread, setThread] = useState([]);
   const [isLoadingThread, setIsLoadingThread] = useState(false);
 
@@ -1030,19 +1048,44 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
 
               {/* Simulation Mode Alert for Email Channel */}
               {activeChannel === 'email' && (!settings?.smtp?.pass || settings?.smtp?.simulatedMode) && (
-                <div className="bg-amber-50/90 border-b border-amber-200 px-4 py-2.5 text-xs text-amber-900 flex items-center justify-between shrink-0">
+                <div className="bg-amber-50/90 border-b border-amber-200 px-4 py-2.5 text-xs text-amber-900 flex flex-wrap items-center justify-between gap-2 shrink-0">
                   <div className="flex items-center space-x-2">
                     <span className="flex h-2 w-2 rounded-full bg-amber-500 animate-pulse"></span>
                     <span className="font-bold">Safe Testing &amp; Simulation Mode Active:</span>
-                    <span className="text-amber-800">Emails are logged in your dashboard, but NOT delivered to real prospect inboxes.</span>
+                    <span className="text-amber-800">
+                      {settings?.smtp?.pass 
+                        ? 'Gmail is connected, but Simulation Mode is still ON.' 
+                        : 'Gmail App Password is not yet entered.'}
+                    </span>
                   </div>
-                  <button
-                    type="button"
-                    onClick={onOpenSettings}
-                    className="text-amber-900 underline font-bold hover:text-amber-700 text-xs shrink-0 ml-3"
-                  >
-                    Enable Live Gmail Sending &rarr;
-                  </button>
+                  <div className="flex items-center space-x-2 shrink-0">
+                    {settings?.smtp?.pass ? (
+                      <button
+                        type="button"
+                        onClick={handleToggleLiveSending}
+                        className="px-3 py-1 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs shadow-xs flex items-center space-x-1 transition-all"
+                        title="Click to turn off simulation mode and send real emails"
+                      >
+                        <span>⚡ Switch to Live Sending Now</span>
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={() => onOpenSettings && onOpenSettings('smtp')}
+                        className="text-amber-900 underline font-bold hover:text-amber-700 text-xs"
+                      >
+                        Enter Gmail Password &rarr;
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => onOpenSettings && onOpenSettings('smtp')}
+                      className="px-2 py-1 rounded text-slate-600 hover:text-slate-900 text-xs font-semibold hover:bg-amber-100/60"
+                      title="Open SMTP Settings"
+                    >
+                      SMTP Settings ⚙️
+                    </button>
+                  </div>
                 </div>
               )}
 

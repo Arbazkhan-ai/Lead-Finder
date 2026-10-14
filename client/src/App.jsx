@@ -48,7 +48,14 @@ export default function App() {
   const [selectedLeadForOutreach, setSelectedLeadForOutreach] = useState(null);
   const [selectedLeadForEdit, setSelectedLeadForEdit] = useState(null);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState('ai');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+
+  const handleOpenSettings = (tab = 'ai') => {
+    setSettingsInitialTab(tab);
+    setIsSettingsOpen(true);
+  };
+
 
   useEffect(() => {
     loadAllData();
@@ -176,7 +183,7 @@ export default function App() {
         activeTab={activeTab}
         setActiveTab={setActiveTab}
         settings={settings}
-        onOpenSettings={() => setIsSettingsOpen(true)}
+        onOpenSettings={(tab) => handleOpenSettings(tab || 'ai')}
         stats={stats}
       />
 
@@ -198,7 +205,7 @@ export default function App() {
             onLeadsAdded={handleRefreshStats}
             onStartOutreach={handleStartOutreach}
             settings={settings}
-            onOpenSettings={() => setIsSettingsOpen(true)}
+            onOpenSettings={(tab) => handleOpenSettings(tab || 'maps')}
           />
         )}
 
@@ -220,7 +227,8 @@ export default function App() {
               handleUpdateLead(updated.id, updated);
             }}
             settings={settings}
-            onOpenSettings={() => setIsSettingsOpen(true)}
+            onSettingsUpdated={(newSettings) => setSettings(newSettings)}
+            onOpenSettings={(tab) => handleOpenSettings(tab || 'smtp')}
           />
         )}
       </main>
@@ -244,6 +252,7 @@ export default function App() {
         isOpen={isSettingsOpen}
         onClose={() => setIsSettingsOpen(false)}
         settings={settings}
+        initialTab={settingsInitialTab}
         onSettingsUpdated={(newSettings) => setSettings(newSettings)}
       />
 
