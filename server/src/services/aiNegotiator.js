@@ -572,7 +572,7 @@ export function generateInitialOutreach({
   const businessName = aiConfig.businessName || 'Arbaz Khan — AI Systems & Engineering';
   const portfolioUrl = aiConfig.portfolioUrl || 'https://arbazkhaan.vercel.app/';
   const bookingLink = aiConfig.bookingLink || 'https://arbazkhaan.vercel.app/#contact';
-  const fromEmail = settings.smtp?.fromEmail || 'arbazkhanofficial@gmail.com';
+  const fromEmail = settings.smtp?.fromEmail || 'arbazkhanofficial140@gmail.com';
   let leadFirstName = 'there';
   if (lead.name && !lead.name.includes('Owner') && !lead.name.includes('Principal') && !lead.name.includes('Decision Maker')) {
     const parts = lead.name.trim().split(/\s+/);

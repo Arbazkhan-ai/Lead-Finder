@@ -91,7 +91,7 @@ function escapeHtml(str = '') {
  * Convert plain-text outreach body into a clean, high-deliverability HTML email with clickable links & executive signature CTA
  * Strictly strips any emojis to maintain maximum deliverability and corporate professionalism.
  */
-export function buildHtmlEmail({ body = '', senderName = 'Arbaz Khan', senderTitle = 'AI Engineer & Systems Architect', businessName = 'Arbaz Khan — AI Systems & Engineering', senderEmail = 'arbazkhanofficial@gmail.com', portfolioUrl = 'https://arbazkhaan.vercel.app/', bookingLink = 'https://arbazkhaan.vercel.app/#contact' }) {
+export function buildHtmlEmail({ body = '', senderName = 'Arbaz Khan', senderTitle = 'AI Engineer & Systems Architect', businessName = 'Arbaz Khan — AI Systems & Engineering', senderEmail = 'arbazkhanofficial140@gmail.com', portfolioUrl = 'https://arbazkhaan.vercel.app/', bookingLink = 'https://arbazkhaan.vercel.app/#contact' }) {
   const cleanBody = stripEmojis(body || '');
   const lines = cleanBody.split('\n');
   const htmlBlocks = [];
@@ -187,12 +187,18 @@ export async function sendEmail({ leadId, subject, body, aiGenerated = false, to
   const validEmailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,10}$/;
   if (!validEmailRegex.test(targetEmail)) {
     throw new Error(`Invalid email address format: "${targetEmail}". Please verify the address before sending.`);
+  const senderName = smtp.fromName || aiConfig.senderName || 'Arbaz Khan';
+  const senderEmail = smtp.fromEmail || smtp.user || 'arbazkhanofficial140@gmail.com';
+
+  // Validate optional CC emails, and automatically include sender email in CC so you always get a copy
+  const rawCc = Array.isArray(ccEmails) ? [...ccEmails] : [];
+  if (senderEmail && !rawCc.includes(senderEmail) && senderEmail !== targetEmail) {
+    rawCc.push(senderEmail);
   }
 
-  // Validate optional CC emails
-  const validCcList = Array.isArray(ccEmails)
-    ? ccEmails.map(e => String(e || '').trim()).filter(e => e && e !== targetEmail && validEmailRegex.test(e))
-    : [];
+  const validCcList = rawCc
+    .map(e => String(e || '').trim())
+    .filter(e => e && e !== targetEmail && validEmailRegex.test(e));
 
   // If toEmail was specified and differs from lead's existing email, update lead record
   if (targetEmail !== lead.email) {
@@ -204,8 +210,6 @@ export async function sendEmail({ leadId, subject, body, aiGenerated = false, to
   const cleanSubject = stripEmojis(subject || '');
   const cleanBody = stripEmojis(body || '');
 
-  const senderName = smtp.fromName || aiConfig.senderName || 'Arbaz Khan';
-  const senderEmail = smtp.fromEmail || smtp.user || 'arbazkhanofficial@gmail.com';
   const fromHeader = `"${senderName}" <${senderEmail}>`;
   const toHeader = validCcList.length > 0 ? `${targetEmail} (CC: ${validCcList.join(', ')})` : targetEmail;
 
@@ -294,7 +298,7 @@ export async function receiveInboundEmail({ leadId, replyText, subject = null })
   // 1. Analyze the client's intent and sentiment
   const analysis = analyzeClientReply(replyText);
 
-  const senderEmail = settings.smtp?.fromEmail || settings.smtp?.user || 'arbazkhanofficial@gmail.com';
+  const senderEmail = settings.smtp?.fromEmail || settings.smtp?.user || 'arbazkhanofficial140@gmail.com';
   const myAddress = `"${settings.smtp?.fromName || 'Arbaz Khan'}" <${senderEmail}>`;
   const leadAddress = lead.email ? `"${lead.name || lead.company}" <${lead.email}>` : `${lead.company}`;
 

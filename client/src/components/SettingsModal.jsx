@@ -27,10 +27,10 @@ export default function SettingsModal({ isOpen, onClose, settings, onSettingsUpd
       smtp: {
         host: src?.smtp?.host || settings?.smtp?.host || 'smtp.gmail.com',
         port: src?.smtp?.port || settings?.smtp?.port || 587,
-        user: src?.smtp?.user || settings?.smtp?.user || 'arbazkhanofficial@gmail.com',
+        user: src?.smtp?.user || settings?.smtp?.user || 'arbazkhanofficial140@gmail.com',
         pass: src?.smtp?.pass || settings?.smtp?.pass || '',
         fromName: src?.smtp?.fromName || settings?.smtp?.fromName || 'Arbaz Khan',
-        fromEmail: src?.smtp?.fromEmail || settings?.smtp?.fromEmail || 'arbazkhanofficial@gmail.com',
+        fromEmail: src?.smtp?.fromEmail || settings?.smtp?.fromEmail || 'arbazkhanofficial140@gmail.com',
         secure: src?.smtp?.secure ?? settings?.smtp?.secure ?? false,
         simulatedMode: src?.smtp?.simulatedMode ?? settings?.smtp?.simulatedMode ?? false
       },
@@ -309,7 +309,7 @@ export default function SettingsModal({ isOpen, onClose, settings, onSettingsUpd
               <div className="p-4 rounded-xl bg-blue-50/80 border border-blue-200 space-y-2">
                 <div className="flex items-center space-x-2 text-blue-900 font-bold text-xs">
                   <Mail className="w-4 h-4 text-blue-600" />
-                  <span>Send Real Emails from Your Gmail (arbazkhanofficial@gmail.com)</span>
+                  <span>Send Real Emails from Your Gmail ({formData.smtp.user || 'arbazkhanofficial140@gmail.com'})</span>
                 </div>
                 <p className="text-[11px] text-slate-600 leading-relaxed">
                   When Gmail is connected, every email you send through this platform will be sent directly from your Gmail account and <strong>will appear directly inside your Gmail Sent folder and Inbox</strong>!

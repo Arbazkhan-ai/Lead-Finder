@@ -29,10 +29,10 @@ const defaultSettings = {
   smtp: {
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: Number(process.env.SMTP_PORT) || 587,
-    user: process.env.SMTP_USER || 'arbazkhanofficial@gmail.com',
+    user: process.env.SMTP_USER || 'arbazkhanofficial140@gmail.com',
     pass: process.env.SMTP_PASS || '',
     fromName: process.env.SMTP_FROM_NAME || 'Arbaz Khan',
-    fromEmail: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || 'arbazkhanofficial@gmail.com',
+    fromEmail: process.env.SMTP_FROM_EMAIL || process.env.SMTP_USER || 'arbazkhanofficial140@gmail.com',
     secure: process.env.SMTP_SECURE === 'true',
     simulatedMode: process.env.SMTP_SIMULATED_MODE !== undefined 
       ? process.env.SMTP_SIMULATED_MODE === 'true' 
