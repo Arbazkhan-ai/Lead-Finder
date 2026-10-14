@@ -6,6 +6,7 @@ import PipelineBoard from './components/PipelineBoard';
 import ConversationHub from './components/ConversationHub';
 import LeadDetailModal from './components/LeadDetailModal';
 import SettingsModal from './components/SettingsModal';
+import OnboardingTour from './components/OnboardingTour';
 import api from './api/client';
 
 export default function App() {
@@ -50,15 +51,22 @@ export default function App() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [settingsInitialTab, setSettingsInitialTab] = useState('ai');
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isTourOpen, setIsTourOpen] = useState(false);
 
   const handleOpenSettings = (tab = 'ai') => {
     setSettingsInitialTab(tab);
     setIsSettingsOpen(true);
   };
 
-
   useEffect(() => {
     loadAllData();
+    // Auto-launch onboarding tour for first-time visitors
+    try {
+      const tourCompleted = localStorage.getItem('lead_finder_tour_completed');
+      if (!tourCompleted) {
+        setIsTourOpen(true);
+      }
+    } catch (_) {}
   }, []);
 
   const loadAllData = async () => {
@@ -85,16 +93,44 @@ export default function App() {
           smtp: { ...(serverSettings?.smtp || {}), ...(localSettings?.smtp || {}) },
           ai: { ...(serverSettings?.ai || {}), ...(localSettings?.ai || {}) }
         };
-        serverSettings = mergedSettings;
         setSettings(mergedSettings);
 
         // If server was reset (e.g. serverless cold start), sync user's saved settings to the server
-        const serverNeedsSync = !settingsRes?.settings?.smtp?.pass && localSettings?.smtp?.pass;
+        const serverNeedsSync = !settingsRes?.settings?.smtp?.hasPass && localSettings?.smtp?.pass;
         if (serverNeedsSync) {
           api.settings.update(mergedSettings).catch(() => {});
         }
-      } else if (serverSettings) {
-        setSettings(serverSettings);
+      } else {
+        // Brand new visitor! Provide clean, generic starter templates.
+        // Never expose owner's personal email or API keys to other visitors.
+        const visitorDefault = {
+          serpApiKey: '',
+          googlePlacesApiKey: '',
+          smtp: {
+            host: 'smtp.gmail.com',
+            port: 587,
+            user: '',
+            pass: '',
+            fromName: 'Growth Specialist',
+            fromEmail: '',
+            secure: false,
+            simulatedMode: true // Safe Simulation Mode active by default for every new visitor
+          },
+          ai: {
+            provider: 'built_in',
+            apiKey: '',
+            businessName: 'AI Growth & Consulting Agency',
+            senderName: 'Your Name',
+            senderTitle: 'Growth & Solutions Architect',
+            productService: 'Custom AI Automation & High-Converting Web Audits',
+            pitchOffer: 'We build high-converting web systems and intelligent automation pipelines that capture qualified leads and plug revenue leaks.',
+            pricingModel: 'Retainer & Performance: Starting at $1,500/mo. Special Offer: Free comprehensive audit & proof-of-concept.',
+            bookingLink: 'https://calendly.com',
+            portfolioUrl: '',
+            autopilot: true
+          }
+        };
+        setSettings(visitorDefault);
       }
 
       const fetchedLeads = leadsRes?.leads || [];
@@ -219,6 +255,7 @@ export default function App() {
         settings={settings}
         onOpenSettings={(tab) => handleOpenSettings(tab || 'ai')}
         stats={stats}
+        onOpenTour={() => setIsTourOpen(true)}
       />
 
       {/* Main Content Area */}
@@ -288,6 +325,19 @@ export default function App() {
         settings={settings}
         initialTab={settingsInitialTab}
         onSettingsUpdated={(newSettings) => setSettings(newSettings)}
+      />
+
+      {/* Interactive Onboarding Tour Walkthrough */}
+      <OnboardingTour
+        isOpen={isTourOpen}
+        onClose={() => {
+          setIsTourOpen(false);
+          try {
+            localStorage.setItem('lead_finder_tour_completed', 'true');
+          } catch (_) {}
+        }}
+        onOpenSettings={handleOpenSettings}
+        onNavigateTab={setActiveTab}
       />
 
     </div>

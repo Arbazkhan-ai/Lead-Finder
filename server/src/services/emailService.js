@@ -187,6 +187,8 @@ export async function sendEmail({ leadId, subject, body, aiGenerated = false, to
   const validEmailRegex = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,10}$/;
   if (!validEmailRegex.test(targetEmail)) {
     throw new Error(`Invalid email address format: "${targetEmail}". Please verify the address before sending.`);
+  }
+
   const senderName = smtp.fromName || aiConfig.senderName || 'Arbaz Khan';
   const senderEmail = smtp.fromEmail || smtp.user || 'arbazkhanofficial140@gmail.com';
 

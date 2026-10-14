@@ -1,8 +1,8 @@
 import React from 'react';
-import { Search, Send, Layers, Settings, Sparkles, Activity, CheckCircle2, FileSpreadsheet } from 'lucide-react';
+import { Search, Send, Layers, Settings, Sparkles, Activity, CheckCircle2, FileSpreadsheet, Compass } from 'lucide-react';
 import api from '../api/client';
 
-export default function Navbar({ activeTab, setActiveTab, settings, onOpenSettings, stats }) {
+export default function Navbar({ activeTab, setActiveTab, settings, onOpenSettings, stats, onOpenTour }) {
   const handleQuickExportPipeline = async () => {
     try {
       const res = await api.leads.exportExcel({ query: 'pipeline_leads' });
@@ -129,6 +129,16 @@ export default function Navbar({ activeTab, setActiveTab, settings, onOpenSettin
                 <span>{stats.closedWon} Won</span>
               </div>
             )}
+
+            <button
+              onClick={onOpenTour}
+              className="inline-flex items-center space-x-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 text-indigo-700 text-xs font-bold transition-all shadow-sm"
+              title="Launch Onboarding Tour & Interactive Setup Guide"
+            >
+              <Compass className="w-3.5 h-3.5 text-indigo-600" />
+              <span className="hidden sm:inline">Tour &amp; Setup Guide</span>
+              <span className="sm:hidden">Tour</span>
+            </button>
 
             <button
               onClick={onOpenSettings}

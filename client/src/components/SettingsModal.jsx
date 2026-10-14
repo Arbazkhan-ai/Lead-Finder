@@ -22,30 +22,30 @@ export default function SettingsModal({ isOpen, onClose, settings, onSettingsUpd
 
     const src = localSaved || settings || {};
     return {
-      serpApiKey: src?.serpApiKey || settings?.serpApiKey || '',
-      googlePlacesApiKey: src?.googlePlacesApiKey || settings?.googlePlacesApiKey || '',
+      serpApiKey: src?.serpApiKey || '',
+      googlePlacesApiKey: src?.googlePlacesApiKey || '',
       smtp: {
-        host: src?.smtp?.host || settings?.smtp?.host || 'smtp.gmail.com',
-        port: src?.smtp?.port || settings?.smtp?.port || 587,
-        user: src?.smtp?.user || settings?.smtp?.user || 'arbazkhanofficial140@gmail.com',
-        pass: src?.smtp?.pass || settings?.smtp?.pass || '',
-        fromName: src?.smtp?.fromName || settings?.smtp?.fromName || 'Arbaz Khan',
-        fromEmail: src?.smtp?.fromEmail || settings?.smtp?.fromEmail || 'arbazkhanofficial140@gmail.com',
-        secure: src?.smtp?.secure ?? settings?.smtp?.secure ?? false,
-        simulatedMode: src?.smtp?.simulatedMode ?? settings?.smtp?.simulatedMode ?? false
+        host: src?.smtp?.host || 'smtp.gmail.com',
+        port: src?.smtp?.port || 587,
+        user: src?.smtp?.user || '',
+        pass: src?.smtp?.pass || '',
+        fromName: src?.smtp?.fromName || 'Growth Consultant',
+        fromEmail: src?.smtp?.fromEmail || '',
+        secure: src?.smtp?.secure ?? false,
+        simulatedMode: src?.smtp?.simulatedMode ?? true
       },
       ai: {
-        provider: src?.ai?.provider || settings?.ai?.provider || 'built_in',
-        apiKey: src?.ai?.apiKey || settings?.ai?.apiKey || '',
-        businessName: src?.ai?.businessName || settings?.ai?.businessName || 'Arbaz Khan — AI Systems & Engineering',
-        senderName: src?.ai?.senderName || settings?.ai?.senderName || 'Arbaz Khan',
-        senderTitle: src?.ai?.senderTitle || settings?.ai?.senderTitle || 'AI Engineer & Systems Architect',
-        productService: src?.ai?.productService || settings?.ai?.productService || 'Custom AI Solutions, LLM Pipelines & Intelligent Systems',
-        pitchOffer: src?.ai?.pitchOffer || settings?.ai?.pitchOffer || 'I build production-grade AI systems, intelligent automation pipelines, and custom ML solutions that solve high-impact business problems. Portfolio: https://arbazkhaan.vercel.app/',
-        pricingModel: src?.ai?.pricingModel || settings?.ai?.pricingModel || 'Project-Based & Retainers: Starting at $1,500. Special Offer: Free AI architectural audit & risk-free proof of concept.',
-        bookingLink: src?.ai?.bookingLink || settings?.ai?.bookingLink || 'https://arbazkhaan.vercel.app/#contact',
-        portfolioUrl: src?.ai?.portfolioUrl || settings?.ai?.portfolioUrl || 'https://arbazkhaan.vercel.app/',
-        autopilot: src?.ai?.autopilot ?? settings?.ai?.autopilot ?? true
+        provider: src?.ai?.provider || 'built_in',
+        apiKey: src?.ai?.apiKey || '',
+        businessName: src?.ai?.businessName || 'AI Growth & Solutions',
+        senderName: src?.ai?.senderName || 'Founder & Consultant',
+        senderTitle: src?.ai?.senderTitle || 'Solutions Architect',
+        productService: src?.ai?.productService || 'Custom AI Automations & High-Converting Web Systems',
+        pitchOffer: src?.ai?.pitchOffer || 'We build tailored AI automation pipelines and high-converting systems to help businesses acquire qualified leads and close retainers.',
+        pricingModel: src?.ai?.pricingModel || 'Project-Based & Retainers: Starting at $1,500. Special Offer: Free architectural audit & proof-of-concept.',
+        bookingLink: src?.ai?.bookingLink || 'https://calendly.com',
+        portfolioUrl: src?.ai?.portfolioUrl || '',
+        autopilot: src?.ai?.autopilot ?? true
       }
     };
   });
