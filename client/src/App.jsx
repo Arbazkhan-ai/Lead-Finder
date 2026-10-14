@@ -98,14 +98,38 @@ export default function App() {
       }
 
       const fetchedLeads = leadsRes?.leads || [];
-      setLeads(fetchedLeads);
+
+      // Check for locally cached leads from previous sessions/deployments
+      let cachedLeads = [];
+      try {
+        const rawLeads = localStorage.getItem('leads_finder_leads_cache');
+        if (rawLeads) cachedLeads = JSON.parse(rawLeads);
+      } catch (_) {}
+
+      // Identify any leads that exist in the browser cache but are missing from the server
+      const serverLeadIds = new Set(fetchedLeads.map(l => l.id));
+      const missingOnServer = Array.isArray(cachedLeads) ? cachedLeads.filter(cl => cl && cl.id && !serverLeadIds.has(cl.id)) : [];
+
+      let combinedLeads = [...fetchedLeads];
+      if (missingOnServer.length > 0) {
+        console.log(`Re-hydrating ${missingOnServer.length} leads to new deployment...`);
+        combinedLeads = [...missingOnServer, ...fetchedLeads];
+        api.leads.bulkAdd(missingOnServer).then(() => {
+          handleRefreshStats();
+        }).catch(() => {});
+      }
+
+      setLeads(combinedLeads);
       setStats(statsRes?.stats || null);
+      try {
+        localStorage.setItem('leads_finder_leads_cache', JSON.stringify(combinedLeads));
+      } catch (_) {}
 
       // Re-select previously selected lead from localStorage if applicable
       try {
         const savedLeadId = localStorage.getItem('leads_finder_selected_lead_id');
-        if (savedLeadId && fetchedLeads.length > 0) {
-          const matched = fetchedLeads.find(l => l.id === savedLeadId);
+        if (savedLeadId && combinedLeads.length > 0) {
+          const matched = combinedLeads.find(l => l.id === savedLeadId);
           if (matched) setSelectedLeadForOutreach(matched);
         }
       } catch (_) {}
@@ -123,7 +147,11 @@ export default function App() {
         api.leads.getAll(),
         api.analytics.getStats()
       ]);
-      setLeads(leadsRes.leads || []);
+      const updatedList = leadsRes?.leads || [];
+      setLeads(updatedList);
+      try {
+        localStorage.setItem('leads_finder_leads_cache', JSON.stringify(updatedList));
+      } catch (_) {}
       setStats(statsRes.stats || null);
     } catch (err) {
       console.error('Refresh stats error:', err);
@@ -139,7 +167,13 @@ export default function App() {
   };
 
   const handleUpdateLead = (leadId, updates) => {
-    setLeads(prev => prev.map(l => l.id === leadId ? { ...l, ...updates } : l));
+    setLeads(prev => {
+      const updated = prev.map(l => l.id === leadId ? { ...l, ...updates } : l);
+      try {
+        localStorage.setItem('leads_finder_leads_cache', JSON.stringify(updated));
+      } catch (_) {}
+      return updated;
+    });
     handleRefreshStats();
   };
 

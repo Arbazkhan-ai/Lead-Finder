@@ -8,6 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const LOCAL_DATA_DIR = path.join(__dirname, '..', 'data');
 const SEED_DB_FILE = path.join(LOCAL_DATA_DIR, 'database.json');
+const SEED_SEED_FILE = path.join(LOCAL_DATA_DIR, 'database.seed.json');
 const DATA_DIR = process.env.VERCEL ? path.join('/tmp', 'data') : LOCAL_DATA_DIR;
 const DB_FILE = path.join(DATA_DIR, 'database.json');
 
@@ -17,11 +18,18 @@ if (!fs.existsSync(DATA_DIR)) {
 }
 
 // On Vercel, seed DB from repository if /tmp/data/database.json doesn't exist yet
-if (process.env.VERCEL && !fs.existsSync(DB_FILE) && fs.existsSync(SEED_DB_FILE)) {
-  try {
-    fs.copyFileSync(SEED_DB_FILE, DB_FILE);
-  } catch (err) {
-    console.warn('Could not seed database file to /tmp:', err);
+if (process.env.VERCEL && !fs.existsSync(DB_FILE)) {
+  const seedSource = fs.existsSync(SEED_DB_FILE)
+    ? SEED_DB_FILE
+    : (fs.existsSync(SEED_SEED_FILE) ? SEED_SEED_FILE : null);
+
+  if (seedSource) {
+    try {
+      fs.copyFileSync(seedSource, DB_FILE);
+      console.log('Successfully seeded database from', path.basename(seedSource));
+    } catch (err) {
+      console.warn('Could not seed database file to /tmp:', err);
+    }
   }
 }
 
