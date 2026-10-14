@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
+import { getLeadFingerprints, isSameLead, mergeLeadInfo } from './services/leadDeduplicator.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -52,7 +53,8 @@ class Database {
       leads: [],
       emails: [],
       settings: defaultSettings,
-      activityLogs: []
+      activityLogs: [],
+      generatedLeadsHistory: []
     };
     this.init();
   }
@@ -67,6 +69,7 @@ class Database {
         if (!this.data.emails) this.data.emails = defaultEmails;
         if (!this.data.settings) this.data.settings = defaultSettings;
         if (!this.data.activityLogs) this.data.activityLogs = [];
+        if (!this.data.generatedLeadsHistory) this.data.generatedLeadsHistory = [];
       } else {
         this.data = {
           leads: defaultLeads,
@@ -74,13 +77,17 @@ class Database {
           settings: defaultSettings,
           activityLogs: [
             { id: uuidv4(), type: 'system', message: 'Platform initialized with demo leads and sample sales threads', timestamp: new Date().toISOString() }
-          ]
+          ],
+          generatedLeadsHistory: []
         };
         this.save();
       }
+
+      // Automatically deduplicate existing leads to eliminate past duplicate generations
+      this.deduplicateExistingLeads();
     } catch (err) {
       console.error('Error loading database, resetting to default:', err);
-      this.data = { leads: defaultLeads, emails: defaultEmails, settings: defaultSettings, activityLogs: [] };
+      this.data = { leads: defaultLeads, emails: defaultEmails, settings: defaultSettings, activityLogs: [], generatedLeadsHistory: [] };
       this.save();
     }
   }
@@ -133,7 +140,156 @@ class Database {
     return this.data.leads.find(l => l.id === id);
   }
 
+  getAllExistingFingerprints() {
+    const prints = new Set();
+    // From all active pipeline leads
+    for (const lead of this.data.leads || []) {
+      for (const p of getLeadFingerprints(lead)) {
+        prints.add(p);
+      }
+    }
+    // From all previously generated leads history
+    for (const item of this.data.generatedLeadsHistory || []) {
+      if (Array.isArray(item.fingerprints)) {
+        for (const p of item.fingerprints) {
+          prints.add(p);
+        }
+      } else {
+        for (const p of getLeadFingerprints(item)) {
+          prints.add(p);
+        }
+      }
+    }
+    return prints;
+  }
+
+  findLeadByFingerprints(leadData) {
+    if (!leadData) return null;
+    if (leadData.id) {
+      const byId = this.data.leads.find(l => l.id === leadData.id);
+      if (byId) return byId;
+    }
+    const targetPrints = getLeadFingerprints(leadData);
+    if (targetPrints.size === 0) return null;
+
+    for (const lead of this.data.leads) {
+      const existingPrints = getLeadFingerprints(lead);
+      for (const p of targetPrints) {
+        if (existingPrints.has(p)) return lead;
+      }
+    }
+    return null;
+  }
+
+  recordGeneratedLeads(leadsList, meta = {}) {
+    if (!Array.isArray(leadsList) || leadsList.length === 0) return 0;
+    if (!this.data.generatedLeadsHistory) this.data.generatedLeadsHistory = [];
+
+    const existingPrints = this.getAllExistingFingerprints();
+    let recordedCount = 0;
+
+    for (const lead of leadsList) {
+      const prints = Array.from(getLeadFingerprints(lead));
+      if (prints.length === 0) continue;
+
+      const alreadyHas = prints.some(p => existingPrints.has(p));
+      if (!alreadyHas) {
+        this.data.generatedLeadsHistory.unshift({
+          company: lead.company || '',
+          website: lead.website || '',
+          email: lead.email || '',
+          phone: lead.phone || '',
+          address: lead.address || '',
+          category: lead.category || '',
+          fingerprints: prints,
+          generatedAt: new Date().toISOString(),
+          query: meta.query || '',
+          location: meta.location || ''
+        });
+        prints.forEach(p => existingPrints.add(p));
+        recordedCount++;
+      }
+    }
+
+    if (this.data.generatedLeadsHistory.length > 10000) {
+      this.data.generatedLeadsHistory = this.data.generatedLeadsHistory.slice(0, 10000);
+    }
+
+    if (recordedCount > 0) {
+      this.save();
+    }
+    return recordedCount;
+  }
+
+  clearGeneratedHistory() {
+    const prevCount = this.data.generatedLeadsHistory ? this.data.generatedLeadsHistory.length : 0;
+    this.data.generatedLeadsHistory = [];
+    this.logActivity('history_cleared', `Cleared lead generation history (${prevCount} records reset)`);
+    this.save();
+    return true;
+  }
+
+  getGeneratedHistoryStats() {
+    const totalGenerated = (this.data.generatedLeadsHistory || []).length;
+    const pipelineLeads = (this.data.leads || []).length;
+    const totalUniqueFingerprints = this.getAllExistingFingerprints().size;
+    return {
+      totalGeneratedHistory: totalGenerated,
+      pipelineLeadsCount: pipelineLeads,
+      totalUniqueFingerprints
+    };
+  }
+
+  deduplicateExistingLeads() {
+    if (!Array.isArray(this.data.leads) || this.data.leads.length <= 1) return 0;
+    const uniqueLeads = [];
+    const seenPrints = new Set();
+    let removedCount = 0;
+
+    for (const lead of this.data.leads) {
+      const prints = getLeadFingerprints(lead);
+      let match = null;
+
+      for (const p of prints) {
+        if (seenPrints.has(p)) {
+          match = uniqueLeads.find(u => getLeadFingerprints(u).has(p));
+          if (match) break;
+        }
+      }
+
+      if (match) {
+        mergeLeadInfo(match, lead);
+        if (Array.isArray(this.data.emails)) {
+          for (const em of this.data.emails) {
+            if (em.leadId === lead.id) {
+              em.leadId = match.id;
+            }
+          }
+        }
+        removedCount++;
+      } else {
+        prints.forEach(p => seenPrints.add(p));
+        uniqueLeads.push(lead);
+      }
+    }
+
+    if (removedCount > 0) {
+      this.data.leads = uniqueLeads;
+      this.save();
+    }
+    return removedCount;
+  }
+
   createLead(leadData) {
+    // Deduplication check: return and merge with existing lead if already present
+    const existing = this.findLeadByFingerprints(leadData);
+    if (existing) {
+      mergeLeadInfo(existing, leadData);
+      existing.updatedAt = new Date().toISOString();
+      this.save();
+      return existing;
+    }
+
     const newLead = {
       id: uuidv4(),
       name: leadData.name || 'Business Owner',
@@ -155,6 +311,7 @@ class Database {
       lastReplyAt: null
     };
     this.data.leads.unshift(newLead);
+    this.recordGeneratedLeads([newLead], { query: 'pipeline_create' });
     this.logActivity('lead_created', `Added new lead: ${newLead.company} (${newLead.email || 'No email'})`, { leadId: newLead.id });
     this.save();
     return newLead;
@@ -162,13 +319,14 @@ class Database {
 
   bulkAddLeads(leadsList) {
     const added = [];
+    const batchPrints = new Set();
+    const existingPrints = this.getAllExistingFingerprints();
+
     for (const item of leadsList) {
-      // Avoid duplicate by website or email if exists
-      const existing = this.data.leads.find(l => 
-        (item.email && l.email && l.email.toLowerCase() === item.email.toLowerCase()) ||
-        (item.website && l.website && l.website.replace(/\/$/, '') === item.website.replace(/\/$/, ''))
-      );
-      if (!existing) {
+      const itemPrints = getLeadFingerprints(item);
+      const isDuplicate = Array.from(itemPrints).some(p => existingPrints.has(p) || batchPrints.has(p));
+
+      if (!isDuplicate) {
         const newLead = {
           id: uuidv4(),
           name: item.name || 'Owner / Representative',
@@ -191,9 +349,14 @@ class Database {
         };
         this.data.leads.unshift(newLead);
         added.push(newLead);
+        itemPrints.forEach(p => {
+          batchPrints.add(p);
+          existingPrints.add(p);
+        });
       }
     }
     if (added.length > 0) {
+      this.recordGeneratedLeads(added, { query: 'bulk_import' });
       this.logActivity('bulk_leads', `Successfully added ${added.length} new prospective leads`);
       this.save();
     }

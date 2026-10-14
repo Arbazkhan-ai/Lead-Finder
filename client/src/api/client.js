@@ -43,7 +43,10 @@ export const api = {
     exportExcel: (data = {}) => request('/leads/export-excel', { method: 'POST', body: data }),
     getExports: () => request('/leads/exports'),
     uploadFile: (payload) => request('/leads/upload-file', { method: 'POST', body: payload }),
-    loadExportFile: (payload) => request('/leads/load-export', { method: 'POST', body: payload })
+    loadExportFile: (payload) => request('/leads/load-export', { method: 'POST', body: payload }),
+    getHistoryStats: () => request('/leads/history/stats'),
+    clearHistory: () => request('/leads/history/clear', { method: 'POST' }),
+    deduplicate: () => request('/leads/deduplicate', { method: 'POST' })
   },
   outreach: {
     getThread: (leadId) => request(`/outreach/thread/${leadId}`),

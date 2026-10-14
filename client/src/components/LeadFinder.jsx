@@ -3,7 +3,7 @@ import {
   Search, Globe, Mail, Phone, MapPin, Plus, Check, Loader2, 
   ExternalLink, Sparkles, Filter, RefreshCw, Send, CheckCircle2,
   FileSpreadsheet, Download, Database, Share2, Copy, LayoutGrid,
-  List, ShieldAlert, FolderDown, Award, Layers, Upload
+  List, ShieldAlert, ShieldCheck, FolderDown, Award, Layers, Upload
 } from 'lucide-react';
 import api from '../api/client';
 
@@ -16,6 +16,8 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
   const [limit, setLimit] = useState(100);
   const [platforms, setPlatforms] = useState(['websites', 'facebook', 'instagram', 'linkedin']);
   const [autoDownloadExcel, setAutoDownloadExcel] = useState(true);
+  const [excludeExisting, setExcludeExisting] = useState(true);
+  const [skippedCount, setSkippedCount] = useState(0);
   const [isSearching, setIsSearching] = useState(false);
   const [scrapePhase, setScrapePhase] = useState(0);
   const [hasSearched, setHasSearched] = useState(false);
@@ -169,13 +171,15 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
     const withPhone = searchResults.filter(l => Boolean(l.phone)).length;
     const withSocial = searchResults.filter(l => Boolean(l.socials?.facebook || l.socials?.instagram || l.socials?.linkedin)).length;
     const withAudit = searchResults.filter(l => Boolean(l.websiteAudit)).length;
-    return { total, withEmail, withPhone, withSocial, withAudit };
+    const primeCount = searchResults.filter(l => (l.qualityScore || 0) >= 75 || l.healthStatus === 'prime').length;
+    return { total, withEmail, withPhone, withSocial, withAudit, primeCount };
   }, [searchResults]);
 
   const filteredResults = useMemo(() => {
     return searchResults
       .map((lead, originalIndex) => ({ lead, originalIndex }))
       .filter(({ lead }) => {
+        if (resultFilter === 'prime' && (lead.qualityScore || 0) < 75 && lead.healthStatus !== 'prime') return false;
         if (resultFilter === 'email' && !lead.email) return false;
         if (resultFilter === 'phone' && !lead.phone) return false;
         if (resultFilter === 'social' && !(lead.socials?.facebook || lead.socials?.instagram || lead.socials?.linkedin)) return false;
@@ -215,16 +219,19 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
     setResultFilter('all');
     setResultSearchText('');
     setSelectedIndices(new Set());
+    setSkippedCount(0);
 
     try {
       const res = await api.leads.search({
         query,
         location,
         limit: Number(limit),
-        platforms
+        platforms,
+        excludeExisting
       });
       const leads = res.leads || [];
       setSearchResults(leads);
+      setSkippedCount(res.skippedCount || 0);
       const all = new Set(leads.map((_, i) => i));
       setSelectedIndices(all);
 
@@ -239,6 +246,16 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
       alert('Search failed: ' + err.message);
     } finally {
       setIsSearching(false);
+    }
+  };
+
+  const handleClearHistory = async () => {
+    if (!window.confirm('Reset generation history? Previously generated leads will be eligible for re-discovery.')) return;
+    try {
+      await api.leads.clearHistory();
+      setAddedSuccess('✓ Generation history reset! Leads can now be re-discovered.');
+    } catch (err) {
+      alert('Failed to reset history: ' + err.message);
     }
   };
 
@@ -784,16 +801,29 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
                 </button>
               </div>
 
-              <label className="inline-flex items-center space-x-2 cursor-pointer select-none bg-emerald-50 hover:bg-emerald-100/70 border border-emerald-200 px-3.5 py-1.5 rounded-xl transition-colors">
-                <input
-                  type="checkbox"
-                  checked={autoDownloadExcel}
-                  onChange={(e) => setAutoDownloadExcel(e.target.checked)}
-                  className="rounded bg-white border-emerald-400 text-emerald-600 focus:ring-0 cursor-pointer"
-                />
-                <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-                <span className="text-xs font-bold text-emerald-800">Auto-Download Excel (.xlsx)</span>
-              </label>
+              <div className="flex flex-wrap items-center gap-2">
+                <label className="inline-flex items-center space-x-2 cursor-pointer select-none bg-blue-50 hover:bg-blue-100/70 border border-blue-200 px-3.5 py-1.5 rounded-xl transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={excludeExisting}
+                    onChange={(e) => setExcludeExisting(e.target.checked)}
+                    className="rounded bg-white border-blue-400 text-blue-600 focus:ring-0 cursor-pointer"
+                  />
+                  <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+                  <span className="text-xs font-bold text-blue-800">Skip Previously Generated Leads</span>
+                </label>
+
+                <label className="inline-flex items-center space-x-2 cursor-pointer select-none bg-emerald-50 hover:bg-emerald-100/70 border border-emerald-200 px-3.5 py-1.5 rounded-xl transition-colors">
+                  <input
+                    type="checkbox"
+                    checked={autoDownloadExcel}
+                    onChange={(e) => setAutoDownloadExcel(e.target.checked)}
+                    className="rounded bg-white border-emerald-400 text-emerald-600 focus:ring-0 cursor-pointer"
+                  />
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                  <span className="text-xs font-bold text-emerald-800">Auto-Download Excel (.xlsx)</span>
+                </label>
+              </div>
             </div>
 
             {/* Quick Presets */}
@@ -813,13 +843,24 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
                 ))}
               </div>
 
-              <button
-                type="button"
-                onClick={onOpenSettings}
-                className="text-[11px] text-blue-600 hover:text-blue-700 underline font-semibold"
-              >
-                {hasMapsApiKey ? 'Google Maps API Active ✓' : '+ Connect Optional SerpAPI / Places Key'}
-              </button>
+              <div className="flex items-center space-x-3">
+                <button
+                  type="button"
+                  onClick={handleClearHistory}
+                  className="text-[11px] text-slate-500 hover:text-rose-600 font-semibold transition-colors"
+                  title="Reset lead generation history so previously generated leads can be re-scraped"
+                >
+                  Reset History
+                </button>
+                <span className="text-slate-300">•</span>
+                <button
+                  type="button"
+                  onClick={onOpenSettings}
+                  className="text-[11px] text-blue-600 hover:text-blue-700 underline font-semibold"
+                >
+                  {hasMapsApiKey ? 'Google Maps API Active ✓' : '+ Connect Optional SerpAPI / Places Key'}
+                </button>
+              </div>
             </div>
           </div>
 
@@ -923,15 +964,33 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
             </div>
           )}
 
+          {/* Skipped Previously Generated Leads Banner */}
+          {skippedCount > 0 && (
+            <div className="p-3.5 rounded-2xl bg-blue-50/90 border border-blue-200 flex items-center justify-between gap-3 text-xs text-blue-900 shadow-xs">
+              <div className="flex items-center space-x-2.5">
+                <div className="p-1.5 rounded-lg bg-blue-100 text-blue-700 shrink-0">
+                  <ShieldCheck className="w-4 h-4" />
+                </div>
+                <div>
+                  <span className="font-extrabold">{skippedCount} previously generated leads skipped:</span>
+                  <span className="text-blue-700 ml-1.5">
+                    Our deduplication engine filtered out businesses you have already discovered, ensuring 100% fresh, non-duplicate prospects.
+                  </span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* INTERACTIVE KPI FILTER BAR & RESULTS TABLE */}
           {searchResults.length > 0 && (
             <div className="space-y-4">
               
               {/* Clickable KPI Filter Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-5 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 {[
                   { id: 'all', label: 'Total Scraped Leads', count: metrics.total, color: 'border-blue-400 text-blue-900 bg-blue-50 ring-1 ring-blue-400' },
-                  { id: 'email', label: 'Verified Emails', count: metrics.withEmail, color: 'border-emerald-400 text-emerald-900 bg-emerald-50 ring-1 ring-emerald-400' },
+                  { id: 'prime', label: '🟢 Prime & Healthy', count: metrics.primeCount, color: 'border-emerald-500 text-emerald-950 bg-emerald-50 ring-1 ring-emerald-500' },
+                  { id: 'email', label: 'Verified Emails', count: metrics.withEmail, color: 'border-blue-400 text-blue-900 bg-blue-50 ring-1 ring-blue-400' },
                   { id: 'phone', label: 'Direct Phones', count: metrics.withPhone, color: 'border-indigo-400 text-indigo-900 bg-indigo-50 ring-1 ring-indigo-400' },
                   { id: 'social', label: 'FB / IG / LinkedIn', count: metrics.withSocial, color: 'border-pink-400 text-pink-900 bg-pink-50 ring-1 ring-pink-400' },
                   { id: 'audited', label: 'Audited Websites', count: metrics.withAudit, color: 'border-teal-400 text-teal-900 bg-teal-50 ring-1 ring-teal-400' }
@@ -1130,17 +1189,28 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
                                 />
                               </td>
 
-                              {/* Quality Score Badge */}
+                              {/* Quality Score & Health Status Badge */}
                               <td className="p-3.5 text-center">
-                                <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-lg text-[11px] font-black border ${
-                                  qScore >= 75
-                                    ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                                    : qScore >= 50
-                                    ? 'bg-blue-50 text-blue-700 border-blue-200'
-                                    : 'bg-slate-100 text-slate-600 border-slate-200'
-                                }`} title="Lead Quality & Contact Completeness Score">
-                                  {qScore}%
-                                </span>
+                                <div className="flex flex-col items-center space-y-1">
+                                  <span className={`inline-flex items-center justify-center px-2 py-0.5 rounded-lg text-[11px] font-black border ${
+                                    qScore >= 75
+                                      ? 'bg-emerald-50 text-emerald-700 border-emerald-300'
+                                      : qScore >= 50
+                                      ? 'bg-blue-50 text-blue-700 border-blue-300'
+                                      : 'bg-amber-50 text-amber-700 border-amber-300'
+                                  }`} title="Lead Quality & Reachability Completeness Score">
+                                    {qScore}%
+                                  </span>
+                                  <span className={`text-[9px] px-1.5 py-0.5 rounded font-bold uppercase tracking-wider ${
+                                    qScore >= 75
+                                      ? 'bg-emerald-100 text-emerald-800'
+                                      : qScore >= 50
+                                      ? 'bg-blue-100 text-blue-800'
+                                      : 'bg-amber-100 text-amber-800'
+                                  }`}>
+                                    {lead.healthBadge || (qScore >= 75 ? 'Prime' : qScore >= 50 ? 'Healthy' : 'Contactable')}
+                                  </span>
+                                </div>
                               </td>
 
                               {/* Company Name, Decision Maker & Problem-Solution Diagnosis */}
@@ -1428,9 +1498,16 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
                                   {lead.company}
                                 </h4>
                               </div>
-                              <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
-                                {qScore}% Match
-                              </span>
+                              <div className="flex items-center space-x-1 shrink-0">
+                                <span className={`px-1.5 py-0.5 rounded text-[9px] font-bold uppercase ${
+                                  qScore >= 75 ? 'bg-emerald-100 text-emerald-800' : qScore >= 50 ? 'bg-blue-100 text-blue-800' : 'bg-amber-100 text-amber-800'
+                                }`}>
+                                  {lead.healthBadge || (qScore >= 75 ? 'Prime' : qScore >= 50 ? 'Healthy' : 'Contactable')}
+                                </span>
+                                <span className="px-2 py-0.5 rounded-lg text-[10px] font-black bg-emerald-50 text-emerald-700 border border-emerald-200">
+                                  {qScore}%
+                                </span>
+                              </div>
                             </div>
 
                             <div className="text-[11px] text-blue-700 font-medium">

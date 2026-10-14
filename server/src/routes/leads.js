@@ -3,6 +3,7 @@ import path from 'path';
 import fs from 'fs';
 import db from '../db.js';
 import { searchLeads, scrapeWebsite, findRealEmailForLead, auditWebsite } from '../services/leadFinder.js';
+import { isSameLead } from '../services/leadDeduplicator.js';
 import {
   EXPORTS_DIR,
   generateLeadsExcelFile,
@@ -119,14 +120,65 @@ router.delete('/:id', (req, res) => {
   }
 });
 
+// GET /api/leads/history/stats - Stats on recorded generated leads and unique fingerprints
+router.get('/history/stats', (req, res) => {
+  try {
+    const stats = db.getGeneratedHistoryStats();
+    res.json({ success: true, stats });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/leads/history/clear - Reset lead generation history so leads can be re-searched if needed
+router.post('/history/clear', (req, res) => {
+  try {
+    const success = db.clearGeneratedHistory();
+    res.json({ success });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
+// POST /api/leads/deduplicate - Run full pipeline lead deduplication
+router.post('/deduplicate', (req, res) => {
+  try {
+    const removedCount = db.deduplicateExistingLeads();
+    res.json({ success: true, removedCount, remainingLeadsCount: db.getLeads().length });
+  } catch (err) {
+    res.status(500).json({ success: false, error: err.message });
+  }
+});
+
 // POST /api/leads/search - Search prospective businesses by keyword & location (Large dataset + Socials + auto Excel export)
 router.post('/search', async (req, res) => {
   try {
-    const { query, location, limit = 100, platforms = ['websites', 'facebook', 'instagram', 'linkedin'] } = req.body;
+    const {
+      query,
+      location,
+      limit = 100,
+      platforms = ['websites', 'facebook', 'instagram', 'linkedin'],
+      excludeExisting = true
+    } = req.body;
+
     if (!query) {
       return res.status(400).json({ success: false, error: 'Query is required (e.g. "Dentists", "Marketing Agency")' });
     }
-    const results = await searchLeads({ query, location, limit, platforms });
+
+    const results = await searchLeads({
+      query,
+      location,
+      limit,
+      platforms,
+      excludeExisting: Boolean(excludeExisting)
+    });
+
+    const skippedCount = results.skippedCount || 0;
+
+    // Record freshly generated leads into persistent history so next time they are NOT generated again!
+    if (results.length > 0) {
+      db.recordGeneratedLeads(results, { query, location });
+    }
 
     // Automatically generate Excel (.xlsx) file whenever data is scraped
     let excelFile = null;
@@ -135,9 +187,10 @@ router.post('/search', async (req, res) => {
         excelFile = generateLeadsExcelFile(results, { query, location });
         db.logActivity(
           'leads_scraped_excel',
-          `Scraped ${results.length} leads for "${query}" in "${location || 'All'}" & created Excel file: ${excelFile.fileName}`,
+          `Scraped ${results.length} new leads for "${query}" in "${location || 'All'}" (${skippedCount} duplicates filtered) & created Excel file: ${excelFile.fileName}`,
           {
             count: results.length,
+            skippedCount,
             fileName: excelFile.fileName,
             filePath: excelFile.filePath
           }
@@ -150,6 +203,7 @@ router.post('/search', async (req, res) => {
     res.json({
       success: true,
       count: results.length,
+      skippedCount,
       leads: results,
       excelFile
     });
@@ -320,8 +374,7 @@ async function processUploadedLeadsList(parsedLeads, options = {}) {
     // Match existing + newly added leads from DB so every uploaded row has an ID
     const allDbLeads = db.getLeads({});
     savedLeads = parsedLeads.map(p => {
-      const match = newlyAdded.find(n => (n.email && n.email === p.email) || n.company.toLowerCase() === p.company.toLowerCase())
-        || allDbLeads.find(d => (p.email && d.email === p.email) || d.company.toLowerCase() === p.company.toLowerCase());
+      const match = newlyAdded.find(n => isSameLead(n, p)) || allDbLeads.find(d => isSameLead(d, p));
       if (match) {
         // Ensure email is updated if the uploaded file had an email and the existing DB lead didn't
         if (p.email && !match.email) {

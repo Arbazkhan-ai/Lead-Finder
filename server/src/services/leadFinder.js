@@ -3,6 +3,7 @@ import * as cheerio from 'cheerio';
 import { URL } from 'url';
 import db from '../db.js';
 import { auditWebsite, auditWebsiteFromHtml } from './websiteAuditor.js';
+import { getLeadFingerprints } from './leadDeduplicator.js';
 
 const USER_AGENT = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36';
 
@@ -13,14 +14,18 @@ const EMAIL_REGEX = /([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,10})/gi;
 const PHONE_TEXT_REGEX = /(?:\+?\d{1,3}[\s.-]?)?\(?\d{3}\)?[\s.-]\d{3}[\s.-]\d{4}/g;
 
 // Junk email & placeholder patterns to strictly reject
+// Junk email & placeholder patterns to strictly reject
 const JUNK_PATTERNS = [
   'example.com', 'domain.com', 'email.com', 'yourname@', 'sentry.io',
   'wixpress.com', 'wordpress.com', 'cloudflare.com', 'bootstrap.com',
   'github.com', 'schema.org', 'w3.org', 'test@', 'placeholder@',
   'sample@', 'test.com', 'user@', 'admin@domain', 'name@domain',
   'someone@', 'myemail@', 'mail@mail.com', 'noreply@', 'no-reply@',
+  'donotreply@', 'mailer-daemon@', 'postmaster@', 'abuse@', 'webmaster@',
   'googlesyndication', 'googletagmanager', 'doubleclick', 'fb.com',
-  'facebook.com', 'u003e', '2x.png', '3x.png'
+  'facebook.com', 'u003e', '2x.png', '3x.png', '4x.png',
+  'support@wix.com', 'support@squarespace.com', 'support@shopify.com',
+  'support@wordpress.com', 'careers@', 'jobs@', 'press@', 'media@'
 ];
 
 // Directory & aggregator domains to exclude from direct business website leads
@@ -32,9 +37,64 @@ const EXCLUDED_DOMAINS = [
   'findlaw.com', 'justia.com', 'expertise.com', 'upcity.com',
   'goodfirms.co', 'glassdoor.com', 'indeed.com', 'mapquest.com',
   'pinterest.com', 'reddit.com', 'quora.com', 'threebestrated.com',
-  'birdeye.com', 'Nextdoor.com', 'chamberofcommerce.com', 'manta.com',
-  'superpages.com', 'dnb.com', 'zoominfo.com'
+  'birdeye.com', 'nextdoor.com', 'chamberofcommerce.com', 'manta.com',
+  'superpages.com', 'dnb.com', 'zoominfo.com', 'foursquare.com',
+  'citysearch.com', 'merchantcircle.com', 'local.com', 'ezlocal.com',
+  'cylex.us.com', 'trustpilot.com', 'groupon.com', 'waze.com',
+  'opentable.com', 'hotfrog.com', 'brownbook.net', 'apple.com',
+  'facebook.com', 'instagram.com', 'linkedin.com', 'twitter.com', 'x.com',
+  'youtube.com', 'tiktok.com'
 ];
+
+// Generic non-business or taxonomy terms to reject as company names
+const GENERIC_NAME_BLACKLIST = new Set([
+  'atm', 'parking', 'bus stop', 'restroom', 'public toilet', 'information', 'bench',
+  'post box', 'waste basket', 'fire station', 'police', 'telephone',
+  'bicycle parking', 'fuel', 'charging station', 'recycling', 'shelter',
+  'dentist', 'dental', 'dental clinic', 'doctor', 'clinic', 'hospital', 'pharmacy',
+  'lawyer', 'attorney', 'law firm', 'school', 'kindergarten', 'college', 'university',
+  'church', 'place of worship', 'mosque', 'temple', 'synagogue',
+  'cemetery', 'park', 'playground', 'pitch', 'swimming pool', 'fountain',
+  'supermarket', 'convenience', 'bakery', 'kiosk', 'marketplace',
+  'test', 'sample', 'unknown', 'n/a', 'na', 'null', 'undefined', 'anonymous',
+  'general business', 'business contact', 'prospective client', 'owner / representative'
+]);
+
+/**
+ * Validate that a company name is a legitimate distinct business name, not a generic label
+ */
+export function isValidCompanyName(name) {
+  if (!name || typeof name !== 'string') return false;
+  const clean = name.trim();
+  if (clean.length < 3 || clean.length > 90) return false;
+  if (/^https?:\/\//i.test(clean) || /^www\./i.test(clean) || clean.includes('.com') || clean.includes('.org') || clean.includes('.net')) {
+    return false;
+  }
+  const lower = clean.toLowerCase();
+  if (GENERIC_NAME_BLACKLIST.has(lower)) return false;
+  if (/^[^a-zA-Z]+$/.test(clean)) return false;
+  return true;
+}
+
+/**
+ * Check if a lead has at least one valid, actionable contact method
+ */
+export function isContactableLead(lead) {
+  if (!lead || typeof lead !== 'object') return false;
+  const hasEmail = Boolean(cleanEmail(lead.email));
+  const hasPhone = Boolean(cleanPhone(lead.phone));
+  const hasWebsite = Boolean(lead.website && !EXCLUDED_DOMAINS.some(d => (lead.website || '').toLowerCase().includes(d)));
+  const hasSocial = Boolean(
+    (lead.socials?.facebook && !lead.socials.facebook.includes('/search/')) ||
+    (lead.socials?.instagram && !lead.socials.instagram.includes('/search/')) ||
+    (lead.socials?.linkedin && !lead.socials.linkedin.includes('/search/')) ||
+    (lead.facebookUrl && !lead.facebookUrl.includes('/search/')) ||
+    (lead.instagramUrl && !lead.instagramUrl.includes('/search/')) ||
+    (lead.linkedinUrl && !lead.linkedinUrl.includes('/search/'))
+  );
+
+  return hasEmail || hasPhone || hasWebsite || hasSocial;
+}
 
 /**
  * Decode Cloudflare's data-cfemail hex protection into a real email address
@@ -84,15 +144,6 @@ export function cleanEmail(email) {
   return trimmed;
 }
 
-export function cleanPhone(phone) {
-  if (!phone) return null;
-  const cleanedStr = String(phone).trim();
-  const digits = cleanedStr.replace(/\D/g, '');
-  if (digits.length < 7 || digits.length > 15) return null;
-  if (/^(19|20)\d{2}[-/]\d{2}/.test(cleanedStr)) return null;
-  return cleanedStr;
-}
-
 /**
  * De-obfuscate HTML entities, Cloudflare email protection, and anti-spam tricks
  */
@@ -102,7 +153,6 @@ function deobfuscateHtml(html) {
     .replace(/&#64;|&#x40;|\s*(\[at\]|\(at\))\s*/gi, '@')
     .replace(/\s*(\[dot\]|\(dot\))\s*/gi, '.');
 
-  // Decode inline Cloudflare email-protection hashes: /cdn-cgi/l/email-protection#HEX or data-cfemail="HEX"
   processed = processed.replace(/data-cfemail="([0-9a-fA-F]+)"/g, (_, hex) => {
     const decoded = decodeCloudflareEmail(hex);
     return decoded ? `mailto:${decoded} ${decoded}` : '';
@@ -134,16 +184,95 @@ function detectTechStack(html = '') {
 }
 
 /**
- * Calculate a Lead Quality Score (0-100) to rank the best leads first
+ * Clean & validate phone numbers
+ */
+export function cleanPhone(phone) {
+  if (!phone) return null;
+  const cleanedStr = String(phone).trim();
+  const digits = cleanedStr.replace(/\D/g, '');
+  if (digits.length < 7 || digits.length > 15) return null;
+  if (/^(19|20)\d{2}[-/]\d{2}/.test(cleanedStr)) return null;
+  // Reject dummy repeating sequences
+  if (/^(0{7,}|1{7,}|2{7,}|3{7,}|4{7,}|5{7,}|9{7,})$/.test(digits)) return null;
+  if (digits === '1234567890') return null;
+  return cleanedStr;
+}
+
+/**
+ * Calculate a Lead Quality Score (0-100) based on reachability and verified contact completeness
  */
 export function computeLeadQualityScore(lead) {
-  let score = 15; // Base score for verified business name & category
-  if (lead.email) score += 35;
-  if (lead.phone) score += 20;
-  if (lead.website) score += 12;
-  if (lead.socials?.facebook || lead.socials?.instagram || lead.socials?.linkedin) score += 10;
-  if (lead.websiteAudit?.weakPoints?.length > 0) score += 8;
-  return Math.min(100, score);
+  let score = 20; // Base score for valid verified business name & location
+
+  // Direct verified email (crucial for outbound campaigns)
+  if (lead.email) {
+    score += 35;
+    if (lead.website) {
+      try {
+        const domain = new URL(lead.website.startsWith('http') ? lead.website : 'https://' + lead.website).hostname.replace(/^www\./, '').toLowerCase();
+        if (lead.email.toLowerCase().endsWith('@' + domain)) {
+          score += 10;
+        }
+      } catch (_) {}
+    }
+  }
+
+  // Direct phone number
+  if (lead.phone) score += 15;
+
+  // Active website
+  if (lead.website) score += 10;
+
+  // Real Social Profiles (Facebook, Instagram, LinkedIn)
+  if (lead.socials?.facebook || lead.facebookUrl) score += 5;
+  if (lead.socials?.instagram || lead.instagramUrl) score += 5;
+  if (lead.socials?.linkedin || lead.linkedinUrl) score += 5;
+
+  // Technical Website Audit with diagnosed weak points
+  if (lead.websiteAudit) {
+    score += 5;
+    if (Array.isArray(lead.websiteAudit.weakPoints) && lead.websiteAudit.weakPoints.length > 0) {
+      score += 5;
+    }
+  }
+
+  return Math.min(100, Math.max(15, score));
+}
+
+/**
+ * Compute comprehensive Lead Health categorization
+ */
+export function computeLeadHealth(lead) {
+  const score = computeLeadQualityScore(lead);
+  const hasEmail = Boolean(cleanEmail(lead.email));
+  const hasPhone = Boolean(cleanPhone(lead.phone));
+  const hasWebsite = Boolean(lead.website && !EXCLUDED_DOMAINS.some(d => (lead.website || '').toLowerCase().includes(d)));
+  const hasSocial = Boolean(lead.socials?.facebook || lead.socials?.instagram || lead.socials?.linkedin || lead.facebookUrl || lead.instagramUrl || lead.linkedinUrl);
+
+  let status = 'unhealthy';
+  let badgeLabel = 'Incomplete';
+
+  if (score >= 75 && (hasEmail || hasPhone) && hasWebsite) {
+    status = 'prime';
+    badgeLabel = 'Prime Verified';
+  } else if (score >= 50 && (hasEmail || hasPhone || (hasWebsite && hasSocial))) {
+    status = 'healthy';
+    badgeLabel = 'Healthy & Active';
+  } else if (hasEmail || hasPhone || hasWebsite || hasSocial) {
+    status = 'contactable';
+    badgeLabel = 'Contactable';
+  }
+
+  return {
+    score,
+    status,
+    badgeLabel,
+    isHealthy: status !== 'unhealthy',
+    hasEmail,
+    hasPhone,
+    hasWebsite,
+    hasSocial
+  };
 }
 
 /**
@@ -910,7 +1039,8 @@ export async function searchLeads({
   query,
   location,
   limit = 100,
-  platforms = ['websites', 'facebook', 'instagram', 'linkedin']
+  platforms = ['websites', 'facebook', 'instagram', 'linkedin'],
+  excludeExisting = true
 }) {
   const targetLimit = Math.min(Math.max(Number(limit) || 100, 10), 500);
   const searchTerm = query.trim();
@@ -925,14 +1055,20 @@ export async function searchLeads({
   const includeInstagram = activePlatforms.includes('instagram');
   const includeLinkedin = activePlatforms.includes('linkedin');
 
+  // Load all known fingerprints from active pipeline leads AND previously generated search history
+  const existingFingerprints = excludeExisting ? db.getAllExistingFingerprints() : new Set();
+  let skippedDuplicatesCount = 0;
+
   const rawLeads = [];
-  const seenWebsites = new Set();
+  const seenFingerprints = new Set();
   const seenNames = new Set();
 
   const addUniqueLead = (leadObj) => {
     const cleanName = (leadObj.company || '').trim();
-    if (!cleanName || cleanName.length < 2) return false;
-    const nameKey = cleanName.toLowerCase();
+    if (!isValidCompanyName(cleanName)) return false;
+
+    // Reject dead leads with zero contact channels
+    if (!isContactableLead(leadObj)) return false;
 
     let domain = '';
     if (leadObj.website) {
@@ -945,25 +1081,44 @@ export async function searchLeads({
       return false;
     }
 
-    if (seenNames.has(nameKey)) {
-      const existing = rawLeads.find(l => l.company.toLowerCase() === nameKey);
-      if (existing) {
-        if (!existing.email && leadObj.email) existing.email = leadObj.email;
-        if (!existing.phone && leadObj.phone) existing.phone = leadObj.phone;
-        if (!existing.website && leadObj.website) existing.website = leadObj.website;
-        if (leadObj.socials) {
-          existing.socials = {
-            ...existing.socials,
-            ...Object.fromEntries(Object.entries(leadObj.socials).filter(([_, v]) => Boolean(v)))
-          };
-        }
-      }
-      return false;
-    }
-    if (domain && seenWebsites.has(domain)) return false;
+    const leadPrints = getLeadFingerprints(leadObj);
 
-    seenNames.add(nameKey);
-    if (domain) seenWebsites.add(domain);
+    // 1. Strict Exclusion of Previously Generated / Existing Leads
+    if (excludeExisting && existingFingerprints.size > 0 && leadPrints.size > 0) {
+      const isAlreadyGenerated = Array.from(leadPrints).some(p => existingFingerprints.has(p));
+      if (isAlreadyGenerated) {
+        skippedDuplicatesCount++;
+        return false;
+      }
+    }
+
+    // 2. Intra-Search Deduplication & Data Merging
+    if (leadPrints.size > 0) {
+      const isSeenInRun = Array.from(leadPrints).some(p => seenFingerprints.has(p));
+      if (isSeenInRun) {
+        const existing = rawLeads.find(l => {
+          const ep = getLeadFingerprints(l);
+          return Array.from(leadPrints).some(p => ep.has(p));
+        });
+        if (existing) {
+          if (!existing.email && leadObj.email) existing.email = leadObj.email;
+          if (!existing.phone && leadObj.phone) existing.phone = leadObj.phone;
+          if (!existing.website && leadObj.website) existing.website = leadObj.website;
+          if (leadObj.socials) {
+            existing.socials = {
+              ...existing.socials,
+              ...Object.fromEntries(Object.entries(leadObj.socials).filter(([_, v]) => Boolean(v)))
+            };
+          }
+        }
+        return false;
+      }
+      leadPrints.forEach(p => seenFingerprints.add(p));
+    } else {
+      const nameKey = cleanName.toLowerCase();
+      if (seenNames.has(nameKey)) return false;
+      seenNames.add(nameKey);
+    }
 
     const fbUrl = leadObj.socials?.facebook || `https://www.facebook.com/search/pages/?q=${encodeURIComponent(cleanName + ' ' + searchLoc)}`;
     const igUrl = leadObj.socials?.instagram || `https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent(cleanName)}`;
@@ -1125,7 +1280,7 @@ export async function searchLeads({
         }
         const bbox = `${south},${west},${north},${east}`;
         const filters = buildOverpassFilters(searchTerm);
-        const maxOverpass = Math.min(targetLimit * 2, 500);
+        const maxOverpass = Math.min(Math.max(targetLimit * 4, 400), 1200);
 
         const unionParts = filters
           .map(f => `node${f}(${bbox});way${f}(${bbox});`)
@@ -1163,7 +1318,7 @@ export async function searchLeads({
           });
 
           for (const el of sortedElements) {
-            if (rawLeads.length >= targetLimit * 1.4) break;
+            if (rawLeads.length >= targetLimit * 2) break;
             const tags = el.tags || {};
             const name = tags.name || tags['brand'] || tags['operator'];
             if (!name) continue;
@@ -1210,9 +1365,9 @@ export async function searchLeads({
   // SOURCE 5: Multi-Page YellowPages Live Business Directory Scraper
   // =========================================================================
   if (includeWebsites && rawLeads.length < targetLimit && searchLoc) {
-    const ypPages = [1, 2, 3, 4];
+    const ypPages = [1, 2, 3, 4, 5, 6, 7, 8];
     await mapWithConcurrency(ypPages, 2, async (page) => {
-      if (rawLeads.length >= targetLimit * 1.3) return;
+      if (rawLeads.length >= targetLimit * 2) return;
       try {
         const ypUrl = `https://www.yellowpages.com/search?search_terms=${encodeURIComponent(searchTerm)}&geo_location_terms=${encodeURIComponent(searchLoc)}&page=${page}`;
         const ypRes = await axios.get(ypUrl, {
@@ -1361,16 +1516,26 @@ export async function searchLeads({
   // =========================================================================
   // STEP 8: High-Speed Concurrent Deep Website & Social Crawl
   // =========================================================================
-  const toProcess = rawLeads.slice(0, targetLimit);
+  // =========================================================================
+  // STEP 8: High-Speed Concurrent Deep Website & Social Crawl
+  // =========================================================================
+  // Prioritize raw leads that already have websites, phones, or socials
+  rawLeads.sort((a, b) => {
+    const aVal = (a.website ? 4 : 0) + (a.email ? 3 : 0) + (a.phone ? 2 : 0) + (a.socials?.facebook || a.socials?.instagram ? 1 : 0);
+    const bVal = (b.website ? 4 : 0) + (b.email ? 3 : 0) + (b.phone ? 2 : 0) + (b.socials?.facebook || b.socials?.instagram ? 1 : 0);
+    return bVal - aVal;
+  });
 
-  const enrichedLeads = await mapWithConcurrency(toProcess, 25, async (lead) => {
+  const toProcess = rawLeads.slice(0, Math.min(rawLeads.length, Math.round(targetLimit * 1.6)));
+
+  const enrichedLeads = await mapWithConcurrency(toProcess, 20, async (lead) => {
     const targetUrlToCrawl = lead.website || lead.socials?.facebook || lead.socials?.instagram || lead.socials?.linkedin;
     if (targetUrlToCrawl) {
       try {
         const scraped = await scrapeWebsite(targetUrlToCrawl, {
-          maxSubpages: lead.website ? 1 : 0,
-          timeoutMs: 3500,
-          fastMode: true,
+          maxSubpages: lead.website ? 2 : 0,
+          timeoutMs: 4000,
+          fastMode: false,
           includeAudit: Boolean(lead.website)
         });
         if (scraped.primaryEmail && !lead.email) {
@@ -1419,14 +1584,36 @@ export async function searchLeads({
       } catch (_) {}
     }
 
-    lead.qualityScore = computeLeadQualityScore(lead);
+    // Live Web Email Discovery fallback if website exists but email wasn't on front page
+    if (!lead.email && lead.website) {
+      try {
+        const discovered = await searchWebForEmail({ company: lead.company, website: lead.website });
+        if (discovered?.email) {
+          lead.email = discovered.email;
+          lead.allEmails = Array.from(new Set([discovered.email, ...(lead.allEmails || [])]));
+        }
+      } catch (_) {}
+    }
+
+    const health = computeLeadHealth(lead);
+    lead.qualityScore = health.score;
+    lead.healthStatus = health.status;
+    lead.healthBadge = health.badgeLabel;
+    lead.isHealthy = health.isHealthy;
     return lead;
   });
 
-  // Sort leads so highest quality leads (verified emails, phones, websites & socials) appear first!
-  enrichedLeads.sort((a, b) => (b.qualityScore || 0) - (a.qualityScore || 0));
+  // Filter for genuine, healthy, contactable leads
+  const healthyOnly = enrichedLeads.filter(l => l.isHealthy);
+  const candidatePool = healthyOnly.length >= Math.min(targetLimit, 10) ? healthyOnly : enrichedLeads;
 
-  return enrichedLeads;
+  // Sort leads so highest quality, healthiest leads appear first!
+  candidatePool.sort((a, b) => (b.qualityScore || 0) - (a.qualityScore || 0));
+
+  const resultLeads = candidatePool.slice(0, targetLimit);
+  resultLeads.skippedCount = skippedDuplicatesCount;
+
+  return resultLeads;
 }
 
 export { auditWebsite };
@@ -1436,6 +1623,9 @@ export default {
   cleanPhone,
   decodeCloudflareEmail,
   computeLeadQualityScore,
+  computeLeadHealth,
+  isValidCompanyName,
+  isContactableLead,
   scrapeWebsite,
   searchWebForEmail,
   findRealEmailForLead,
