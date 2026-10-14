@@ -1,5 +1,6 @@
 import express from 'express';
 import db from '../db.js';
+import { verifySmtpConnection } from '../services/emailService.js';
 
 const router = express.Router();
 
@@ -23,4 +24,16 @@ router.put('/', (req, res) => {
   }
 });
 
+// POST /api/settings/test-smtp - Test real SMTP credentials and send verification email
+router.post('/test-smtp', async (req, res) => {
+  try {
+    const customSmtp = req.body?.smtp || req.body || null;
+    const result = await verifySmtpConnection(customSmtp);
+    res.json({ success: true, ...result });
+  } catch (err) {
+    res.status(400).json({ success: false, error: err.message });
+  }
+});
+
 export default router;
+

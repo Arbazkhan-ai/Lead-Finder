@@ -36,6 +36,28 @@ export default function SettingsModal({ isOpen, onClose, settings, onSettingsUpd
 
   const [isSaving, setIsSaving] = useState(false);
   const [savedNotice, setSavedNotice] = useState(false);
+  const [isTestingSmtp, setIsTestingSmtp] = useState(false);
+  const [smtpTestResult, setSmtpTestResult] = useState(null);
+
+  const handleTestSmtp = async () => {
+    setIsTestingSmtp(true);
+    setSmtpTestResult(null);
+    try {
+      const res = await api.settings.testSmtp(formData.smtp);
+      setSmtpTestResult({
+        success: true,
+        message: `✓ SMTP Connected! A real test email was delivered to ${res.recipient || formData.smtp.user}. Check your inbox!`
+      });
+    } catch (err) {
+      setSmtpTestResult({
+        success: false,
+        message: err.message || 'SMTP Connection failed. Verify your Gmail address and 16-character App Password.'
+      });
+    } finally {
+      setIsTestingSmtp(false);
+    }
+  };
+
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -356,6 +378,46 @@ export default function SettingsModal({ isOpen, onClose, settings, onSettingsUpd
                     placeholder="••••••••••••"
                   />
                 </div>
+              </div>
+
+              {/* Test Connection Button & Result */}
+              <div className="pt-2 border-t border-slate-200 space-y-2">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h5 className="text-xs font-bold text-slate-800">Test Live Delivery</h5>
+                    <p className="text-[11px] text-slate-500">Sends an instant test email to your Gmail address to verify connection.</p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={isTestingSmtp || !formData.smtp.pass}
+                    onClick={handleTestSmtp}
+                    className="px-3.5 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold transition-all disabled:opacity-50 flex items-center space-x-1.5 shadow-xs"
+                  >
+                    {isTestingSmtp ? (
+                      <>
+                        <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin"></span>
+                        <span>Verifying...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Mail className="w-3.5 h-3.5 text-blue-400" />
+                        <span>Send Test Email</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {smtpTestResult && (
+                  <div
+                    className={`p-3 rounded-xl text-xs font-medium border animate-in fade-in duration-150 ${
+                      smtpTestResult.success
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-200'
+                        : 'bg-rose-50 text-rose-800 border-rose-200'
+                    }`}
+                  >
+                    {smtpTestResult.message}
+                  </div>
+                )}
               </div>
 
             </div>

@@ -13,16 +13,68 @@ function getTransporter() {
     return null; // Using simulation mode
   }
 
+  const cleanPass = String(smtp.pass).replace(/\s+/g, '');
+  const cleanUser = String(smtp.user).trim();
+
   return nodemailer.createTransport({
     host: smtp.host || 'smtp.gmail.com',
     port: Number(smtp.port) || 587,
-    secure: !!smtp.secure,
+    secure: Number(smtp.port) === 465,
     auth: {
-      user: smtp.user,
-      pass: smtp.pass
+      user: cleanUser,
+      pass: cleanPass
     }
   });
 }
+
+/**
+ * Verify SMTP connection credentials and optionally send a test verification email
+ */
+export async function verifySmtpConnection(customSmtp = null) {
+  const settings = db.getSettings();
+  const smtp = customSmtp || settings.smtp || {};
+
+  if (!smtp.user || !String(smtp.user).trim()) {
+    throw new Error('SMTP Username (your Gmail address) is required.');
+  }
+  if (!smtp.pass || !String(smtp.pass).trim()) {
+    throw new Error('SMTP Password (16-character Google App Password) is required.');
+  }
+
+  const cleanPass = String(smtp.pass).replace(/\s+/g, '');
+  const cleanUser = String(smtp.user).trim();
+
+  const testTransporter = nodemailer.createTransport({
+    host: smtp.host || 'smtp.gmail.com',
+    port: Number(smtp.port) || 587,
+    secure: Number(smtp.port) === 465,
+    auth: {
+      user: cleanUser,
+      pass: cleanPass
+    }
+  });
+
+  // Verify credentials with SMTP server
+  await testTransporter.verify();
+
+  // Send a quick verification test email to the user's own email address
+  const testInfo = await testTransporter.sendMail({
+    from: `"${smtp.fromName || 'Lead Finder'}" <${cleanUser}>`,
+    to: cleanUser,
+    subject: 'Lead Finder — Real SMTP Connection Verified Successfully',
+    text: `Your SMTP configuration is live and verified! Emails sent through your platform will now be delivered directly to real prospects from ${cleanUser}.`,
+    html: `<div style="font-family:sans-serif;padding:20px;border:1px solid #e2e8f0;border-radius:10px;max-width:550px;">
+      <h3 style="color:#0284c7;margin-top:0;">SMTP Connection Verified!</h3>
+      <p style="color:#334155;line-height:1.5;">Your Gmail connection is working. Real emails dispatched through the Lead Finder platform will now reach prospects directly from <strong>${escapeHtml(cleanUser)}</strong>.</p>
+      <div style="margin-top:16px;padding:10px;background:#f8fafc;border-radius:6px;font-size:12px;color:#64748b;">
+        Timestamp: ${new Date().toLocaleString()}
+      </div>
+    </div>`
+  });
+
+  return { success: true, verified: true, recipient: cleanUser, messageId: testInfo.messageId };
+}
+
 
 /**
  * Escape HTML special characters safely
@@ -167,28 +219,39 @@ export async function sendEmail({ leadId, subject, body, aiGenerated = false, to
     bookingLink: aiConfig.bookingLink || 'https://arbazkhaan.vercel.app/#contact'
   });
 
-  let sendStatus = 'sent';
+  // If Simulation Mode is off, ensure SMTP credentials are provided
+  if (!smtp.simulatedMode) {
+    if (!smtp.user || !String(smtp.user).trim()) {
+      throw new Error('Simulation Mode is disabled, but SMTP Username (Gmail address) is missing in Settings > SMTP.');
+    }
+    if (!smtp.pass || !String(smtp.pass).trim()) {
+      throw new Error('Simulation Mode is disabled, but SMTP Password is missing. Please enter your 16-character Gmail App Password in Settings > SMTP.');
+    }
+  }
 
-  if (!smtp.simulatedMode && smtp.user && smtp.pass && targetEmail) {
+  let sendStatus = smtp.simulatedMode ? 'simulated' : 'sent';
+
+  if (!smtp.simulatedMode && targetEmail) {
     try {
       const mailClient = getTransporter();
-      if (mailClient) {
-        await mailClient.sendMail({
-          from: fromHeader,
-          to: targetEmail,
-          cc: validCcList.length > 0 ? validCcList.join(', ') : undefined,
-          replyTo: senderEmail,
-          // BCC yourself so the email shows directly in your Gmail Inbox as well as Sent Mail
-          bcc: senderEmail,
-          subject: cleanSubject,
-          text: cleanBody,
-          html: htmlBody
-        });
+      if (!mailClient) {
+        throw new Error('Failed to initialize mail client with provided SMTP settings.');
       }
+      await mailClient.sendMail({
+        from: fromHeader,
+        to: targetEmail,
+        cc: validCcList.length > 0 ? validCcList.join(', ') : undefined,
+        replyTo: senderEmail,
+        // BCC yourself so the email shows directly in your Gmail Inbox as well as Sent Mail
+        bcc: senderEmail,
+        subject: cleanSubject,
+        text: cleanBody,
+        html: htmlBody
+      });
     } catch (err) {
       console.error('SMTP send error:', err.message);
       db.logActivity('email_delivery_failed', `Failed to send to ${targetEmail}: ${err.message}`, { leadId: lead.id });
-      throw new Error(`Mail Server Error: ${err.message} (Recipient address "${targetEmail}" may not exist or was rejected).`);
+      throw new Error(`Mail Server Error: ${err.message}. Please check your Gmail App Password and recipient address.`);
     }
   }
 
@@ -204,10 +267,15 @@ export async function sendEmail({ leadId, subject, body, aiGenerated = false, to
     aiGenerated: aiGenerated
   });
 
-  db.logActivity('email_sent', `Sent outreach email to ${lead.company} (To: ${toHeader})`, {
-    leadId: lead.id,
-    emailId: emailRecord.id
-  });
+  db.logActivity(
+    sendStatus === 'simulated' ? 'email_simulated' : 'email_sent',
+    `${sendStatus === 'simulated' ? '📝 [Simulated] ' : '🚀 '}Outreach email to ${lead.company} (To: ${toHeader})`,
+    {
+      leadId: lead.id,
+      emailId: emailRecord.id,
+      simulated: sendStatus === 'simulated'
+    }
+  );
 
   return emailRecord;
 }
@@ -489,5 +557,7 @@ export default {
   receiveInboundEmail,
   autoSendOutreach,
   autoSendReply,
-  bulkAutoSendOutreach
+  bulkAutoSendOutreach,
+  verifySmtpConnection
 };
+

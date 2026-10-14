@@ -62,7 +62,8 @@ export const api = {
   },
   settings: {
     get: () => request('/settings'),
-    update: (data) => request('/settings', { method: 'PUT', body: data })
+    update: (data) => request('/settings', { method: 'PUT', body: data }),
+    testSmtp: (smtpData) => request('/settings/test-smtp', { method: 'POST', body: { smtp: smtpData } })
   },
   analytics: {
     getStats: () => request('/analytics')
