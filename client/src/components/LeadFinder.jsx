@@ -4,7 +4,8 @@ import {
   ExternalLink, Sparkles, Filter, RefreshCw, Send, CheckCircle2,
   FileSpreadsheet, Download, Database, Share2, Copy, LayoutGrid,
   List, ShieldAlert, ShieldCheck, FolderDown, Award, Layers, Upload,
-  MessageSquare, MessageCircle, Zap
+  MessageSquare, MessageCircle, Zap, SlidersHorizontal, Edit3, Eye,
+  RotateCcw, X
 } from 'lucide-react';
 import api from '../api/client';
 import { 
@@ -79,6 +80,90 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
 
   // Individual scraping within results table
   const [scrapingIndex, setScrapingIndex] = useState(null);
+
+  // Outreach Email Customization Modal & Template Settings
+  const [isCustomizeEmailModalOpen, setIsCustomizeEmailModalOpen] = useState(false);
+  const [outreachEmailMode, setOutreachEmailMode] = useState('ai_tailored'); // 'ai_tailored' | 'custom_template'
+  const [outreachTone, setOutreachTone] = useState('problem_solution'); // 'problem_solution' | 'website_audit' | 'direct_roi' | 'short_casual'
+  const [outreachCustomSubject, setOutreachCustomSubject] = useState('Quick question regarding {company}');
+  const [outreachCustomBody, setOutreachCustomBody] = useState(
+    'Hi {firstName},\n\nI came across {company} ({website}) and noticed an opportunity to help you capture and convert more inbound clients automatically 24/7.\n\nWould you be open to a quick 5-minute walkthrough this week?\n\nBest regards,\nArbaz Khan'
+  );
+  const [emailModalTab, setEmailModalTab] = useState('editor'); // 'editor' | 'preview'
+
+  // Representative sample lead for live template preview
+  const sampleLead = useMemo(() => {
+    if (searchResults && searchResults.length > 0) {
+      const withEmail = searchResults.find(l => l.email);
+      return withEmail || searchResults[0];
+    }
+    return {
+      company: 'Premier Dental Care',
+      name: 'Dr. Sarah Smith',
+      email: 'contact@premierdentalcare.com',
+      website: 'https://premierdentalcare.com',
+      phone: '+1 (555) 349-2910',
+      location: 'Austin, TX',
+      category: 'Dental Clinic'
+    };
+  }, [searchResults]);
+
+  const renderPreviewText = (text, lead) => {
+    if (!text) return '';
+    let firstName = 'there';
+    if (lead?.name && !lead.name.includes('Owner') && !lead.name.includes('Principal') && !lead.name.includes('Decision Maker') && !lead.name.includes('Managing Director')) {
+      const parts = lead.name.trim().split(/\s+/);
+      if (/^(dr\.?|doctor|attorney|mr\.?|ms\.?|mrs\.?)/i.test(parts[0]) && parts.length > 1) {
+        firstName = `${parts[0]} ${parts[parts.length - 1]}`;
+      } else {
+        firstName = parts[0] || 'there';
+      }
+    }
+    const cleanDomain = lead?.website ? lead.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '') : '';
+    return text
+      .replace(/\{company\}/gi, lead?.company || 'Premier Dental Care')
+      .replace(/\{firstName\}/gi, firstName)
+      .replace(/\{name\}/gi, lead?.name || 'Dr. Sarah Smith')
+      .replace(/\{website\}/gi, cleanDomain || 'premierdentalcare.com')
+      .replace(/\{phone\}/gi, lead?.phone || '+1 (555) 349-2910')
+      .replace(/\{city\}/gi, lead?.location || lead?.city || 'Austin, TX')
+      .replace(/\{category\}/gi, lead?.category || 'Dental Clinic');
+  };
+
+  const getAiTonePreview = (tone, lead) => {
+    let firstName = 'there';
+    if (lead?.name && !lead.name.includes('Owner') && !lead.name.includes('Principal') && !lead.name.includes('Decision Maker') && !lead.name.includes('Managing Director')) {
+      const parts = lead.name.trim().split(/\s+/);
+      firstName = parts[0] || 'there';
+    }
+    const company = lead?.company || 'your business';
+    const cleanDomain = lead?.website ? lead.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '') : 'your website';
+    const location = lead?.location || lead?.city || 'your area';
+
+    if (tone === 'website_audit') {
+      return {
+        subject: `Quick observation on ${cleanDomain || company} (booking friction spotted)`,
+        body: `Hi ${firstName},\n\nI was reviewing ${company}'s website (${cleanDomain}) and noticed a few mobile intake friction points that may be causing interested clients to drop off before contacting you.\n\nWe implemented a 1-click automated capture & instant response workflow that increased lead conversions by 35% without redesigning the website.\n\nWould you be open to a 3-minute video breakdown of what we spotted on ${cleanDomain}?\n\nBest regards,\nArbaz Khan`
+      };
+    }
+    if (tone === 'direct_roi') {
+      return {
+        subject: `Adding 15-25 retained clients monthly for ${company}`,
+        body: `Hi ${firstName},\n\nWe help companies in ${location} capture and close an extra 15-25 high-value clients every month through 24/7 autonomous lead response systems.\n\nOur average partner achieves full payback on their investment within the first 14 days.\n\nCould I send over a 2-minute overview of how this would work for ${company}?\n\nBest regards,\nArbaz Khan`
+      };
+    }
+    if (tone === 'short_casual') {
+      return {
+        subject: `${company} client intake this month`,
+        body: `Hi ${firstName},\n\nQuick question — are you currently taking on new clients at ${company} this month?\n\nWe have a system generating consistent qualified inquiries in ${location} and wanted to see if your team has capacity for more volume.\n\nBest,\nArbaz`
+      };
+    }
+    // problem_solution default
+    return {
+      subject: `Quick question regarding ${company}`,
+      body: `Hi ${firstName},\n\nI came across ${company} and noticed strong client demand in ${location}.\n\nMost businesses miss 25-40% of inbound inquiries after hours or during peak operations. We deploy an autonomous AI system that instantly answers client questions, qualifies leads, and schedules consultations directly into your calendar 24/7.\n\nWould you be open to a 5-minute walkthrough of how this would work for ${company}?\n\nBest regards,\nArbaz Khan`
+    };
+  };
 
   // Sync searchMode if API key becomes available
   useEffect(() => {
@@ -365,9 +450,14 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
         lead = createRes.lead;
       }
 
-      await api.outreach.autoSend(leadId, lead.email || null);
+      await api.outreach.autoSend(leadId, lead.email || null, {
+        emailMode: outreachEmailMode,
+        tone: outreachTone,
+        customSubject: outreachEmailMode === 'custom_template' ? outreachCustomSubject : null,
+        customBody: outreachEmailMode === 'custom_template' ? outreachCustomBody : null
+      });
       setSentRowIndices(prev => new Set([...prev, index]));
-      setAddedSuccess(`⚡ Auto-Sent tailored outreach to ${lead.company}!`);
+      setAddedSuccess(`⚡ Auto-Sent ${outreachEmailMode === 'custom_template' ? 'custom' : 'tailored'} outreach to ${lead.company}!`);
       if (onLeadsAdded) onLeadsAdded();
     } catch (err) {
       alert(`Auto-send failed for ${lead.company}: ` + err.message);
@@ -426,12 +516,17 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
 
     setIsBulkAutoSending(true);
     try {
-      const res = await api.outreach.bulkAutoSend(leadsToProcess);
+      const res = await api.outreach.bulkAutoSend(leadsToProcess, {
+        emailMode: outreachEmailMode,
+        tone: outreachTone,
+        customSubject: outreachEmailMode === 'custom_template' ? outreachCustomSubject : null,
+        customBody: outreachEmailMode === 'custom_template' ? outreachCustomBody : null
+      });
       const sentCount = res.count || 0;
       const errorCount = res.errors?.length || 0;
       const skippedCount = res.skippedNoEmail?.length || 0;
 
-      let msg = `⚡ Auto-Sent ${sentCount} outreach emails successfully!`;
+      let msg = `⚡ Auto-Sent ${sentCount} ${outreachEmailMode === 'custom_template' ? 'custom' : 'tailored'} outreach emails successfully!`;
       if (errorCount > 0) {
         msg += ` (${errorCount} failed: ${res.errors[0]?.error || 'delivery error'})`;
       }
@@ -1376,6 +1471,25 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
                           <span>Export Excel (.xlsx)</span>
                         </>
                       )}
+                    </button>
+
+                    {/* Customize Email Template & Pitch Button */}
+                    <button
+                      type="button"
+                      onClick={() => setIsCustomizeEmailModalOpen(true)}
+                      className={`px-3.5 py-2 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all shadow-xs border ${
+                        outreachEmailMode === 'custom_template'
+                          ? 'bg-purple-50 hover:bg-purple-100 text-purple-900 border-purple-300 ring-2 ring-purple-400/30'
+                          : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-300'
+                      }`}
+                      title="Customize email subject line, message body template, dynamic placeholders and AI pitch angles"
+                    >
+                      <SlidersHorizontal className="w-3.5 h-3.5 text-purple-600" />
+                      <span>
+                        {outreachEmailMode === 'custom_template' 
+                          ? '⚙️ Email: Custom ✍️' 
+                          : `⚙️ Email: AI (${outreachTone === 'problem_solution' ? 'Problem/Fix' : outreachTone === 'website_audit' ? 'Audit' : outreachTone === 'direct_roi' ? 'ROI' : 'Casual'}) 🤖`}
+                      </span>
                     </button>
 
                     {/* Auto-Send All Verified Emails Button */}
@@ -2717,6 +2831,331 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
               ))}
             </div>
           )}
+        </div>
+      )}
+
+      {/* CUSTOMIZE EMAIL TEMPLATE & OUTREACH MODAL */}
+      {isCustomizeEmailModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-150">
+          <div className="bg-white border border-slate-200 rounded-3xl w-full max-w-4xl shadow-2xl overflow-hidden flex flex-col max-h-[92vh] animate-in zoom-in-95 duration-200">
+            
+            {/* Modal Header */}
+            <div className="px-6 py-4 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between border-b border-slate-800 shrink-0">
+              <div className="flex items-center space-x-3">
+                <div className="p-2 rounded-xl bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                  <SlidersHorizontal className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="text-base font-black text-white flex items-center space-x-2">
+                    <span>Customize Outreach Email &amp; Pitch</span>
+                    <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-purple-500/30 text-purple-200 border border-purple-400/30">
+                      {outreachEmailMode === 'custom_template' ? 'Custom Template ✍️' : 'AI Autonomous 🤖'}
+                    </span>
+                  </h2>
+                  <p className="text-xs text-slate-300">
+                    Configure AI value propositions or compose your custom template with dynamic placeholders before sending.
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setIsCustomizeEmailModalOpen(false)}
+                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10 transition-colors"
+                title="Close modal"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Modal Body */}
+            <div className="p-6 overflow-y-auto space-y-6 flex-1">
+              {/* Step 1: Mode Selection */}
+              <div>
+                <label className="block text-xs font-black uppercase tracking-wider text-slate-700 mb-2">
+                  1. Select Outreach Strategy
+                </label>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {/* AI Pitch Option */}
+                  <div
+                    onClick={() => setOutreachEmailMode('ai_tailored')}
+                    className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                      outreachEmailMode === 'ai_tailored'
+                        ? 'bg-blue-50/70 border-blue-500 shadow-xs ring-2 ring-blue-500/20'
+                        : 'bg-white border-slate-200 hover:border-slate-300 text-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center space-x-2.5">
+                        <span className="text-2xl">🤖</span>
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-900">AI-Tailored Problem &amp; Solution</h3>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Autonomous pitch crafted individually per prospect&apos;s industry, website flaws &amp; intake gaps.
+                          </p>
+                        </div>
+                      </div>
+                      {outreachEmailMode === 'ai_tailored' && (
+                        <div className="w-5 h-5 rounded-full bg-blue-600 text-white flex items-center justify-center shrink-0">
+                          <Check className="w-3.5 h-3.5" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Custom Template Option */}
+                  <div
+                    onClick={() => setOutreachEmailMode('custom_template')}
+                    className={`p-4 rounded-2xl border-2 cursor-pointer transition-all ${
+                      outreachEmailMode === 'custom_template'
+                        ? 'bg-purple-50/70 border-purple-500 shadow-xs ring-2 ring-purple-500/20'
+                        : 'bg-white border-slate-200 hover:border-slate-300 text-slate-700'
+                    }`}
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center space-x-2.5">
+                        <span className="text-2xl">✍️</span>
+                        <div>
+                          <h3 className="text-sm font-bold text-slate-900">Custom Pitch Template</h3>
+                          <p className="text-xs text-slate-500 mt-0.5">
+                            Your own custom subject line &amp; message body with dynamic tags like <code className="text-purple-700 font-bold">{'{company}'}</code>.
+                          </p>
+                        </div>
+                      </div>
+                      {outreachEmailMode === 'custom_template' && (
+                        <div className="w-5 h-5 rounded-full bg-purple-600 text-white flex items-center justify-center shrink-0">
+                          <Check className="w-3.5 h-3.5" />
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Step 2: Configuration */}
+              {outreachEmailMode === 'ai_tailored' ? (
+                <div className="space-y-4 bg-slate-50/80 p-4.5 rounded-2xl border border-slate-200">
+                  <div>
+                    <label className="block text-xs font-black uppercase tracking-wider text-slate-700 mb-2">
+                      2. Choose AI Tone &amp; Value Proposition Angle
+                    </label>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                      {[
+                        {
+                          id: 'problem_solution',
+                          title: '🎯 Problem & Solution (Recommended)',
+                          desc: 'Diagnoses missing 24/7 client booking and proposes automated intake workflows.'
+                        },
+                        {
+                          id: 'website_audit',
+                          title: '🔍 Website Audit Flaws',
+                          desc: 'Pinpoints exact mobile performance leaks and conversion bottlenecks spotted on their site.'
+                        },
+                        {
+                          id: 'direct_roi',
+                          title: '📈 Direct ROI & Revenue',
+                          desc: 'Focuses on quantified client acquisition (+15-25 clients/month) and fast payback.'
+                        },
+                        {
+                          id: 'short_casual',
+                          title: '💬 Short & Casual Opener',
+                          desc: 'Ultra-concise 2-sentence conversational opener with high mobile reply rates.'
+                        }
+                      ].map(item => (
+                        <div
+                          key={item.id}
+                          onClick={() => setOutreachTone(item.id)}
+                          className={`p-3 rounded-xl border text-left cursor-pointer transition-all ${
+                            outreachTone === item.id
+                              ? 'bg-blue-100/70 border-blue-400 text-blue-900 shadow-xs ring-1 ring-blue-400/40'
+                              : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between text-xs font-bold">
+                            <span>{item.title}</span>
+                            {outreachTone === item.id && <Check className="w-3.5 h-3.5 text-blue-600 shrink-0 ml-1" />}
+                          </div>
+                          <p className="text-[11px] text-slate-600 mt-1 leading-snug">{item.desc}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* AI Tone Live Preview */}
+                  <div className="mt-3 bg-white p-4 rounded-xl border border-slate-200 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                        Live Preview for Sample Lead: <strong className="text-slate-900">{sampleLead.company}</strong>
+                      </span>
+                      <span className="text-[11px] px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 font-bold border border-blue-200">
+                        Tone: {outreachTone.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <div className="border border-slate-100 rounded-lg p-3 bg-slate-50/50 space-y-1.5 text-xs">
+                      <div>
+                        <span className="text-slate-400 font-medium">Subject: </span>
+                        <span className="font-bold text-slate-900">{getAiTonePreview(outreachTone, sampleLead).subject}</span>
+                      </div>
+                      <div className="border-t border-slate-200/60 pt-2 text-slate-700 whitespace-pre-line leading-relaxed font-sans">
+                        {getAiTonePreview(outreachTone, sampleLead).body}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-4 bg-slate-50/80 p-4.5 rounded-2xl border border-slate-200">
+                  {/* Custom Template Editor */}
+                  <div className="space-y-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <label className="text-xs font-black uppercase tracking-wider text-slate-700">
+                        2. Customize Subject &amp; Message Template
+                      </label>
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        <span className="text-[11px] font-bold text-slate-500">Insert Tag:</span>
+                        {[
+                          { tag: '{company}', label: 'Company' },
+                          { tag: '{firstName}', label: 'First Name' },
+                          { tag: '{name}', label: 'Full Name' },
+                          { tag: '{website}', label: 'Website' },
+                          { tag: '{phone}', label: 'Phone' },
+                          { tag: '{city}', label: 'City' },
+                          { tag: '{category}', label: 'Category' }
+                        ].map(v => (
+                          <button
+                            key={v.tag}
+                            type="button"
+                            onClick={() => setOutreachCustomBody(prev => `${prev} ${v.tag}`)}
+                            className="px-2 py-0.5 rounded-lg bg-white hover:bg-purple-50 text-purple-700 font-mono text-[11px] font-bold border border-purple-200 transition-colors shadow-2xs"
+                            title={`Click to insert ${v.tag} into email body`}
+                          >
+                            {v.tag}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                        Subject Line
+                      </label>
+                      <div className="flex items-center space-x-2">
+                        <input
+                          type="text"
+                          value={outreachCustomSubject}
+                          onChange={(e) => setOutreachCustomSubject(e.target.value)}
+                          placeholder="Quick question regarding {company}"
+                          className="flex-1 px-3.5 py-2 rounded-xl bg-white border border-slate-300 text-xs text-slate-900 font-medium focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => setOutreachCustomSubject(prev => `${prev} {company}`)}
+                          className="px-2.5 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold border border-slate-300"
+                          title="Insert {company} tag into subject"
+                        >
+                          +{'{company}'}
+                        </button>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-600 mb-1">
+                        Email Message Body
+                      </label>
+                      <textarea
+                        rows={6}
+                        value={outreachCustomBody}
+                        onChange={(e) => setOutreachCustomBody(e.target.value)}
+                        placeholder="Hi {firstName},\n\n..."
+                        className="w-full px-3.5 py-2.5 rounded-xl bg-white border border-slate-300 text-xs text-slate-900 focus:outline-none focus:border-purple-500 focus:ring-1 focus:ring-purple-500 font-sans leading-relaxed"
+                      />
+                    </div>
+
+                    {/* Live Preview for Custom Template */}
+                    <div className="bg-white p-4 rounded-xl border border-slate-200 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                          Live Preview with Sample Data (<strong className="text-slate-900">{sampleLead.company}</strong>)
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setOutreachCustomSubject('Quick question regarding {company}');
+                            setOutreachCustomBody(
+                              'Hi {firstName},\n\nI came across {company} ({website}) and noticed an opportunity to help you capture and convert more inbound clients automatically 24/7.\n\nWould you be open to a quick 5-minute walkthrough this week?\n\nBest regards,\nArbaz Khan'
+                            );
+                          }}
+                          className="text-[11px] text-slate-500 hover:text-slate-800 flex items-center space-x-1"
+                        >
+                          <RotateCcw className="w-3 h-3" />
+                          <span>Reset to Default</span>
+                        </button>
+                      </div>
+                      <div className="border border-purple-100 rounded-lg p-3 bg-purple-50/20 space-y-1.5 text-xs">
+                        <div>
+                          <span className="text-slate-400 font-medium">To: </span>
+                          <span className="font-semibold text-slate-700">{sampleLead.email || 'contact@premierdentalcare.com'}</span>
+                        </div>
+                        <div>
+                          <span className="text-slate-400 font-medium">Subject: </span>
+                          <span className="font-bold text-slate-900">{renderPreviewText(outreachCustomSubject, sampleLead)}</span>
+                        </div>
+                        <div className="border-t border-slate-200/60 pt-2 text-slate-700 whitespace-pre-line leading-relaxed font-sans">
+                          {renderPreviewText(outreachCustomBody, sampleLead)}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="px-6 py-4 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
+              <div className="text-xs text-slate-500">
+                Selected Strategy: <strong className="text-slate-900">{outreachEmailMode === 'custom_template' ? 'Custom Pitch Template' : `AI Tailored (${outreachTone.replace('_', ' ')})`}</strong>
+              </div>
+
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setIsCustomizeEmailModalOpen(false)}
+                  className="px-4 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-xs font-bold border border-slate-300 transition-colors shadow-2xs"
+                >
+                  Done / Save Settings
+                </button>
+
+                {metrics.withEmail > 0 && (
+                  <button
+                    type="button"
+                    disabled={isBulkAutoSending}
+                    onClick={() => {
+                      setIsCustomizeEmailModalOpen(false);
+                      handleBulkAutoSend(true);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-black shadow-xs flex items-center space-x-1.5 transition-all disabled:opacity-40"
+                  >
+                    <Sparkles className="w-3.5 h-3.5 fill-current" />
+                    <span>⚡ Send All ({metrics.withEmail}) Verified</span>
+                  </button>
+                )}
+
+                {selectedIndices.size > 0 && (
+                  <button
+                    type="button"
+                    disabled={isBulkAutoSending}
+                    onClick={() => {
+                      setIsCustomizeEmailModalOpen(false);
+                      handleBulkAutoSend(false);
+                    }}
+                    className="px-4 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs flex items-center space-x-1.5 transition-all disabled:opacity-40"
+                  >
+                    <Send className="w-3.5 h-3.5" />
+                    <span>Send Selected ({selectedIndices.size})</span>
+                  </button>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

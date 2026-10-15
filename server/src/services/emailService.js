@@ -436,10 +436,46 @@ export async function receiveInboundEmail({ leadId, replyText, subject = null })
 }
 
 /**
+ * Render custom outreach template with dynamic lead variables
+ */
+export function renderEmailTemplate(template, lead = {}) {
+  if (!template) return '';
+  let leadFirstName = 'there';
+  if (lead.name && !lead.name.includes('Owner') && !lead.name.includes('Principal') && !lead.name.includes('Decision Maker') && !lead.name.includes('Managing Director')) {
+    const parts = lead.name.trim().split(/\s+/);
+    if (/^(dr\.?|doctor|attorney|mr\.?|ms\.?|mrs\.?)/i.test(parts[0]) && parts.length > 1) {
+      leadFirstName = `${parts[0]} ${parts[parts.length - 1]}`;
+    } else {
+      leadFirstName = parts[0];
+    }
+  }
+  const cleanDomain = lead.website ? lead.website.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '') : '';
+
+  return template
+    .replace(/\{company\}/gi, lead.company || 'your company')
+    .replace(/\{firstName\}/gi, leadFirstName)
+    .replace(/\{name\}/gi, lead.name || 'Business Owner')
+    .replace(/\{website\}/gi, cleanDomain || lead.website || '')
+    .replace(/\{phone\}/gi, lead.phone || '')
+    .replace(/\{city\}/gi, lead.location || lead.city || '')
+    .replace(/\{category\}/gi, lead.category || 'business');
+}
+
+/**
  * Autonomous 1-Click Auto-Send:
  * Dispatches only to real, verified emails. Never invents fake domains.
+ * Supports both AI-Tailored pitches and Custom Templates.
  */
-export async function autoSendOutreach({ leadId, toEmail = null, skipEmailHunt = false, tone = null, ccAllEmails = false }) {
+export async function autoSendOutreach({ 
+  leadId, 
+  toEmail = null, 
+  skipEmailHunt = false, 
+  tone = null, 
+  ccAllEmails = false,
+  customSubject = null,
+  customBody = null,
+  emailMode = 'ai_tailored'
+}) {
   let lead = db.getLeadById(leadId);
   if (!lead) {
     throw new Error(`Lead with ID ${leadId} not found`);
@@ -463,11 +499,20 @@ export async function autoSendOutreach({ leadId, toEmail = null, skipEmailHunt =
     throw new Error(`No verified email found for "${lead.company}". Please enter their email or click "Find Real Email" to discover one.`);
   }
 
-  // Choose the highest-converting tone automatically if not specified
-  const bestTone = tone || (lead.websiteAudit?.weakPoints?.length > 0 ? 'website_audit' : 'problem_solution');
+  let finalSubject;
+  let finalBody;
 
-  // Auto-generate tailored pitch based on business name, niche, socials & website audit
-  const pitch = generateInitialOutreach({ lead, tone: bestTone });
+  if (emailMode === 'custom_template' && customBody) {
+    finalSubject = renderEmailTemplate(customSubject || 'Quick question regarding {company}', lead);
+    finalBody = renderEmailTemplate(customBody, lead);
+  } else {
+    // Choose the highest-converting tone automatically if not specified
+    const bestTone = tone || (lead.websiteAudit?.weakPoints?.length > 0 ? 'website_audit' : 'problem_solution');
+    // Auto-generate tailored pitch based on business name, niche, socials & website audit
+    const pitch = generateInitialOutreach({ lead, tone: bestTone, customSubject: customSubject || null });
+    finalSubject = pitch.subject;
+    finalBody = pitch.body;
+  }
 
   const ccList = ccAllEmails && Array.isArray(lead.allEmails)
     ? lead.allEmails.filter(e => e && e !== targetEmail)
@@ -476,9 +521,9 @@ export async function autoSendOutreach({ leadId, toEmail = null, skipEmailHunt =
   // Send email
   const emailRecord = await sendEmail({
     leadId: lead.id,
-    subject: pitch.subject,
-    body: pitch.body,
-    aiGenerated: true,
+    subject: finalSubject,
+    body: finalBody,
+    aiGenerated: emailMode !== 'custom_template',
     toEmail: targetEmail,
     ccEmails: ccList
   });
@@ -489,9 +534,10 @@ export async function autoSendOutreach({ leadId, toEmail = null, skipEmailHunt =
     lastContactedAt: new Date().toISOString()
   });
 
-  db.logActivity('auto_sent_outreach', `⚡ Auto-Sent cold outreach to ${lead.company} (To: ${targetEmail})`, {
+  db.logActivity('auto_sent_outreach', `⚡ Auto-Sent ${emailMode === 'custom_template' ? 'custom' : 'tailored'} cold outreach to ${lead.company} (To: ${targetEmail})`, {
     leadId: lead.id,
-    emailId: emailRecord.id
+    emailId: emailRecord.id,
+    mode: emailMode
   });
 
   return {
@@ -548,7 +594,15 @@ export async function autoSendReply({ leadId, clientReplyText = null }) {
 /**
  * Bulk Autonomous Outreach
  */
-export async function bulkAutoSendOutreach({ leads = [], skipEmailHunt = false, delayMs = 1200 }) {
+export async function bulkAutoSendOutreach({ 
+  leads = [], 
+  skipEmailHunt = false, 
+  delayMs = 1200,
+  customSubject = null,
+  customBody = null,
+  tone = null,
+  emailMode = 'ai_tailored'
+}) {
   const sentList = [];
   const errors = [];
   const skippedNoEmail = [];
@@ -582,7 +636,11 @@ export async function bulkAutoSendOutreach({ leads = [], skipEmailHunt = false, 
           res = await autoSendOutreach({
             leadId,
             toEmail: candidateEmail || null,
-            skipEmailHunt: skipEmailHunt || leads.length > 10
+            skipEmailHunt: skipEmailHunt || leads.length > 10,
+            tone,
+            customSubject,
+            customBody,
+            emailMode
           });
           lastErr = null;
           break;

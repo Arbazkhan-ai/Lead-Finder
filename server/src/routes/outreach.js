@@ -179,12 +179,28 @@ router.post('/simulate-reply', async (req, res) => {
 // POST /api/outreach/auto-send - 1-Click autonomous pitch generation & send without asking
 router.post('/auto-send', async (req, res) => {
   try {
-    const { leadId, toEmail, tone = null, ccAllEmails = false } = req.body;
+    const { 
+      leadId, 
+      toEmail, 
+      tone = null, 
+      ccAllEmails = false,
+      customSubject = null,
+      customBody = null,
+      emailMode = 'ai_tailored'
+    } = req.body;
     if (!leadId) {
       return res.status(400).json({ success: false, error: 'leadId is required' });
     }
 
-    const result = await autoSendOutreach({ leadId, toEmail, tone, ccAllEmails });
+    const result = await autoSendOutreach({ 
+      leadId, 
+      toEmail, 
+      tone, 
+      ccAllEmails,
+      customSubject,
+      customBody,
+      emailMode
+    });
     res.json({
       success: true,
       email: result.email,
@@ -217,12 +233,26 @@ router.post('/auto-reply', async (req, res) => {
 // POST /api/outreach/bulk-auto-send - Bulk autonomous send to all selected leads
 router.post('/bulk-auto-send', async (req, res) => {
   try {
-    const { leads, delayMs } = req.body;
+    const { 
+      leads, 
+      delayMs,
+      customSubject = null,
+      customBody = null,
+      tone = null,
+      emailMode = 'ai_tailored'
+    } = req.body;
     if (!Array.isArray(leads) || leads.length === 0) {
       return res.status(400).json({ success: false, error: 'Array of leads is required' });
     }
 
-    const result = await bulkAutoSendOutreach({ leads, delayMs });
+    const result = await bulkAutoSendOutreach({ 
+      leads, 
+      delayMs,
+      customSubject,
+      customBody,
+      tone,
+      emailMode
+    });
     res.json({
       success: true,
       count: result.count,
