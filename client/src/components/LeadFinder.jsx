@@ -185,10 +185,14 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
     const total = searchResults.length;
     const withEmail = searchResults.filter(l => Boolean(l.email)).length;
     const withPhone = searchResults.filter(l => Boolean(l.phone)).length;
-    const withSocial = searchResults.filter(l => Boolean(l.socials?.facebook || l.socials?.instagram || l.socials?.linkedin)).length;
+    const withWhatsapp = searchResults.filter(l => Boolean(l.phone || l.socials?.whatsapp)).length;
+    const withInstagram = searchResults.filter(l => Boolean(l.socials?.instagram || l.socials?.instagramHandle || l.instagramUrl)).length;
+    const withFacebook = searchResults.filter(l => Boolean(l.socials?.facebook || l.facebookUrl)).length;
+    const withLinkedin = searchResults.filter(l => Boolean(l.socials?.linkedin || l.linkedinUrl)).length;
+    const withSocial = searchResults.filter(l => Boolean(l.socials?.facebook || l.socials?.instagram || l.socials?.linkedin || l.facebookUrl || l.instagramUrl || l.linkedinUrl)).length;
     const withAudit = searchResults.filter(l => Boolean(l.websiteAudit)).length;
     const primeCount = searchResults.filter(l => (l.qualityScore || 0) >= 75 || l.healthStatus === 'prime').length;
-    return { total, withEmail, withPhone, withSocial, withAudit, primeCount };
+    return { total, withEmail, withPhone, withWhatsapp, withInstagram, withFacebook, withLinkedin, withSocial, withAudit, primeCount };
   }, [searchResults]);
 
   const filteredResults = useMemo(() => {
@@ -198,7 +202,11 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
         if (resultFilter === 'prime' && (lead.qualityScore || 0) < 75 && lead.healthStatus !== 'prime') return false;
         if (resultFilter === 'email' && !lead.email) return false;
         if (resultFilter === 'phone' && !lead.phone) return false;
-        if (resultFilter === 'social' && !(lead.socials?.facebook || lead.socials?.instagram || lead.socials?.linkedin)) return false;
+        if (resultFilter === 'whatsapp' && !lead.phone && !lead.socials?.whatsapp) return false;
+        if (resultFilter === 'instagram' && !lead.socials?.instagram && !lead.socials?.instagramHandle && !lead.instagramUrl) return false;
+        if (resultFilter === 'facebook' && !lead.socials?.facebook && !lead.facebookUrl) return false;
+        if (resultFilter === 'linkedin' && !lead.socials?.linkedin && !lead.linkedinUrl) return false;
+        if (resultFilter === 'social' && !(lead.socials?.facebook || lead.socials?.instagram || lead.socials?.linkedin || lead.facebookUrl || lead.instagramUrl || lead.linkedinUrl)) return false;
         if (resultFilter === 'audited' && !lead.websiteAudit) return false;
 
         if (resultSearchText.trim()) {
@@ -209,6 +217,21 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
         return true;
       });
   }, [searchResults, resultFilter, resultSearchText]);
+
+  const handleSelectByCriteria = (criteria) => {
+    const indices = new Set();
+    searchResults.forEach((lead, idx) => {
+      if (criteria === 'instagram' && (lead.socials?.instagram || lead.socials?.instagramHandle || lead.instagramUrl)) {
+        indices.add(idx);
+      } else if (criteria === 'whatsapp' && (lead.phone || lead.socials?.whatsapp)) {
+        indices.add(idx);
+      } else if (criteria === 'email' && lead.email) {
+        indices.add(idx);
+      }
+    });
+    setSelectedIndices(indices);
+    setResultFilter(criteria);
+  };
 
   const handleCopyAllEmails = () => {
     const emails = searchResults
@@ -1127,15 +1150,15 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
           {searchResults.length > 0 && (
             <div className="space-y-4">
               
-              {/* Clickable KPI Filter Cards */}
+              {/* Clickable KPI Filter Cards with Dedicated Instagram & WhatsApp Accounts */}
               <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
                 {[
-                  { id: 'all', label: 'Total Scraped Leads', count: metrics.total, color: 'border-blue-400 text-blue-900 bg-blue-50 ring-1 ring-blue-400' },
-                  { id: 'prime', label: '🟢 Prime & Healthy', count: metrics.primeCount, color: 'border-emerald-500 text-emerald-950 bg-emerald-50 ring-1 ring-emerald-500' },
-                  { id: 'email', label: 'Verified Emails', count: metrics.withEmail, color: 'border-blue-400 text-blue-900 bg-blue-50 ring-1 ring-blue-400' },
-                  { id: 'phone', label: 'Direct Phones', count: metrics.withPhone, color: 'border-indigo-400 text-indigo-900 bg-indigo-50 ring-1 ring-indigo-400' },
-                  { id: 'social', label: 'FB / IG / LinkedIn', count: metrics.withSocial, color: 'border-pink-400 text-pink-900 bg-pink-50 ring-1 ring-pink-400' },
-                  { id: 'audited', label: 'Audited Websites', count: metrics.withAudit, color: 'border-teal-400 text-teal-900 bg-teal-50 ring-1 ring-teal-400' }
+                  { id: 'all', label: 'All Scraped Leads', count: metrics.total, color: 'border-slate-400 text-slate-900 bg-slate-50 ring-1 ring-slate-400' },
+                  { id: 'instagram', label: '📸 Instagram Account', count: metrics.withInstagram, color: 'border-pink-500 text-pink-900 bg-pink-50 ring-2 ring-pink-400' },
+                  { id: 'whatsapp', label: '💬 WhatsApp Ready', count: metrics.withWhatsapp, color: 'border-emerald-500 text-emerald-950 bg-emerald-50 ring-2 ring-emerald-400' },
+                  { id: 'email', label: '✉️ Verified Emails', count: metrics.withEmail, color: 'border-blue-400 text-blue-900 bg-blue-50 ring-1 ring-blue-400' },
+                  { id: 'facebook', label: '📘 Facebook Pages', count: metrics.withFacebook, color: 'border-indigo-400 text-indigo-900 bg-indigo-50 ring-1 ring-indigo-400' },
+                  { id: 'prime', label: '🟢 Prime Verified', count: metrics.primeCount, color: 'border-teal-500 text-teal-950 bg-teal-50 ring-1 ring-teal-500' }
                 ].map(card => {
                   const isActive = resultFilter === card.id;
                   return (
@@ -1143,7 +1166,7 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
                       key={card.id}
                       type="button"
                       onClick={() => setResultFilter(card.id)}
-                      className={`p-3.5 rounded-2xl border text-left transition-all ${
+                      className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer ${
                         isActive
                           ? `${card.color} shadow-xs scale-[1.01]`
                           : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300 shadow-xs'
@@ -1151,7 +1174,7 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
                     >
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-bold uppercase tracking-wider text-slate-600">{card.label}</span>
-                        {isActive && <span className="text-[10px] px-1.5 py-0.2 rounded bg-blue-600 text-white font-bold">Filter ON</span>}
+                        {isActive && <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-900 text-white font-bold">Active</span>}
                       </div>
                       <div className="text-2xl font-black text-slate-900 mt-1">{card.count}</div>
                     </button>
@@ -1161,6 +1184,118 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
 
               <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-sm">
                 
+                {/* Account Filter Tags Bar: Filter & Choose which leads actually have Instagram / WhatsApp */}
+                <div className="flex flex-wrap items-center justify-between gap-2.5 px-4 py-3 bg-gradient-to-r from-slate-50 to-slate-100/70 border-b border-slate-200 text-xs">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <span className="font-extrabold text-slate-700 mr-1 flex items-center space-x-1">
+                      <span>Filter by Actual Account:</span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setResultFilter('all')}
+                      className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        resultFilter === 'all'
+                          ? 'bg-slate-900 text-white shadow-xs'
+                          : 'bg-white text-slate-700 hover:bg-slate-100 border border-slate-300'
+                      }`}
+                    >
+                      All Leads ({metrics.total})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setResultFilter('instagram')}
+                      className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
+                        resultFilter === 'instagram'
+                          ? 'bg-pink-600 text-white shadow-xs ring-2 ring-pink-300'
+                          : 'bg-pink-50 text-pink-700 hover:bg-pink-100 border border-pink-300'
+                      }`}
+                      title="Filter and show ONLY leads that have an actual verified Instagram account / handle"
+                    >
+                      <span>📸 Instagram Account</span>
+                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${resultFilter === 'instagram' ? 'bg-white/30 text-white' : 'bg-pink-200 text-pink-800'}`}>
+                        {metrics.withInstagram}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setResultFilter('whatsapp')}
+                      className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
+                        resultFilter === 'whatsapp'
+                          ? 'bg-emerald-600 text-white shadow-xs ring-2 ring-emerald-300'
+                          : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-300'
+                      }`}
+                      title="Filter and show ONLY leads that have an actual WhatsApp contact / direct number"
+                    >
+                      <span>💬 WhatsApp Ready</span>
+                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${resultFilter === 'whatsapp' ? 'bg-white/30 text-white' : 'bg-emerald-200 text-emerald-800'}`}>
+                        {metrics.withWhatsapp}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setResultFilter('email')}
+                      className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
+                        resultFilter === 'email'
+                          ? 'bg-blue-600 text-white shadow-xs ring-2 ring-blue-300'
+                          : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-300'
+                      }`}
+                    >
+                      <span>✉️ Verified Email</span>
+                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${resultFilter === 'email' ? 'bg-white/30 text-white' : 'bg-blue-200 text-blue-800'}`}>
+                        {metrics.withEmail}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setResultFilter('facebook')}
+                      className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
+                        resultFilter === 'facebook'
+                          ? 'bg-indigo-600 text-white shadow-xs ring-2 ring-indigo-300'
+                          : 'bg-indigo-50 text-indigo-700 hover:bg-indigo-100 border border-indigo-300'
+                      }`}
+                    >
+                      <span>📘 Facebook</span>
+                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${resultFilter === 'facebook' ? 'bg-white/30 text-white' : 'bg-indigo-200 text-indigo-800'}`}>
+                        {metrics.withFacebook}
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setResultFilter('linkedin')}
+                      className={`px-3 py-1 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer ${
+                        resultFilter === 'linkedin'
+                          ? 'bg-sky-600 text-white shadow-xs ring-2 ring-sky-300'
+                          : 'bg-sky-50 text-sky-700 hover:bg-sky-100 border border-sky-300'
+                      }`}
+                    >
+                      <span>💼 LinkedIn</span>
+                      <span className={`px-1.5 py-0.2 rounded-full text-[10px] font-black ${resultFilter === 'linkedin' ? 'bg-white/30 text-white' : 'bg-sky-200 text-sky-800'}`}>
+                        {metrics.withLinkedin}
+                      </span>
+                    </button>
+                  </div>
+
+                  <div className="flex flex-wrap items-center gap-1.5 shrink-0 text-[11px]">
+                    <span className="text-slate-500 font-semibold">1-Click Select:</span>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectByCriteria('instagram')}
+                      className="px-2.5 py-1 rounded-lg bg-pink-100/80 hover:bg-pink-200 text-pink-800 font-bold border border-pink-300 transition-colors cursor-pointer"
+                      title="Select all leads that actually have an Instagram account"
+                    >
+                      + Select All IG ({metrics.withInstagram})
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSelectByCriteria('whatsapp')}
+                      className="px-2.5 py-1 rounded-lg bg-emerald-100/80 hover:bg-emerald-200 text-emerald-800 font-bold border border-emerald-300 transition-colors cursor-pointer"
+                      title="Select all leads that actually have a WhatsApp number"
+                    >
+                      + Select All WA ({metrics.withWhatsapp})
+                    </button>
+                  </div>
+                </div>
+
                 {/* Table Header Controls */}
                 <div className="p-4 bg-slate-50/70 border-b border-slate-200 flex flex-col lg:flex-row lg:items-center justify-between gap-3">
                   <div className="flex flex-wrap items-center gap-2.5">
@@ -1332,9 +1467,10 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
                         {filteredResults.map(({ lead, originalIndex: idx }) => {
                           const isSelected = selectedIndices.has(idx);
                           const isRowScraping = scrapingIndex === idx;
-                          const hasDirectFb = Boolean(lead.socials?.facebook);
-                          const hasDirectIg = Boolean(lead.socials?.instagram);
-                          const hasDirectLi = Boolean(lead.socials?.linkedin);
+                          const hasDirectFb = Boolean(lead.socials?.facebook || lead.facebookUrl);
+                          const hasDirectIg = Boolean(lead.socials?.instagram || lead.socials?.instagramHandle || lead.instagramUrl);
+                          const hasDirectWa = Boolean(lead.phone || lead.socials?.whatsapp);
+                          const hasDirectLi = Boolean(lead.socials?.linkedin || lead.linkedinUrl);
                           const qScore = lead.qualityScore || 65;
 
                           return (
@@ -1493,47 +1629,86 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
                               </td>
 
                               {/* Facebook, Instagram, LinkedIn & Google Maps */}
-                              <td className="p-3.5 space-y-1.5">
+                              <td className="p-3.5 space-y-2">
+                                {/* Actual Account Detection Tags */}
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  {hasDirectIg ? (
+                                    <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-pink-50 text-pink-700 border border-pink-200" title="Actual verified Instagram account">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse"></span>
+                                      <span>{lead.socials?.instagramHandle ? lead.socials.instagramHandle : 'Instagram ✓'}</span>
+                                    </span>
+                                  ) : (
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] text-slate-400 bg-slate-50 border border-slate-200">
+                                      No IG
+                                    </span>
+                                  )}
+
+                                  {hasDirectWa ? (
+                                    <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200" title="Actual WhatsApp contact ready">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                      <span>WhatsApp Ready ✓</span>
+                                    </span>
+                                  ) : (
+                                    <span className="px-1.5 py-0.5 rounded text-[9px] text-slate-400 bg-slate-50 border border-slate-200">
+                                      No WA
+                                    </span>
+                                  )}
+
+                                  {hasDirectFb && (
+                                    <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                      <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                      <span>FB Page ✓</span>
+                                    </span>
+                                  )}
+                                </div>
+
+                                {/* Direct Action 1-Click Message Inboxes */}
                                 <div className="flex flex-wrap gap-1.5">
-                                  {/* Direct Facebook Messenger */}
-                                  <button
-                                    type="button"
-                                    onClick={() => openSocialDirectMessage('facebook', lead, setAddedSuccess)}
-                                    className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-colors bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100 shadow-2xs cursor-pointer"
-                                    title="Open Facebook Messenger Direct Inbox (Auto-copies pitch)"
-                                  >
-                                    <span>💬 FB Msg</span>
-                                  </button>
-
                                   {/* Direct Instagram DM */}
-                                  <button
-                                    type="button"
-                                    onClick={() => openSocialDirectMessage('instagram', lead, setAddedSuccess)}
-                                    className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-colors bg-pink-50 text-pink-700 border-pink-300 hover:bg-pink-100 shadow-2xs cursor-pointer"
-                                    title="Open Instagram Direct DM Inbox (Auto-copies pitch)"
-                                  >
-                                    <span>💬 {lead.socials?.instagramHandle ? lead.socials.instagramHandle.replace(/^@/, '').slice(0, 10) : 'IG DM'}</span>
-                                  </button>
-
-                                  {/* Direct LinkedIn Message */}
-                                  <button
-                                    type="button"
-                                    onClick={() => openSocialDirectMessage('linkedin', lead, setAddedSuccess)}
-                                    className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-colors bg-sky-50 text-sky-700 border-sky-300 hover:bg-sky-100 shadow-2xs cursor-pointer"
-                                    title="Open LinkedIn Messaging (Auto-copies pitch)"
-                                  >
-                                    <span>💬 LI Msg</span>
-                                  </button>
+                                  {hasDirectIg && (
+                                    <button
+                                      type="button"
+                                      onClick={() => openSocialDirectMessage('instagram', lead, setAddedSuccess)}
+                                      className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-colors bg-pink-50 text-pink-700 border-pink-300 hover:bg-pink-100 shadow-2xs cursor-pointer"
+                                      title="Open Instagram Direct DM Inbox (Auto-copies pitch)"
+                                    >
+                                      <span>💬 IG DM</span>
+                                    </button>
+                                  )}
 
                                   {/* Direct WhatsApp Message if phone exists */}
-                                  {lead.phone && (
+                                  {hasDirectWa && (
                                     <button
                                       type="button"
                                       onClick={() => openSocialDirectMessage('whatsapp', lead, setAddedSuccess)}
                                       className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-colors bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 shadow-2xs cursor-pointer"
                                       title="Open WhatsApp Direct Message (Auto-copies pitch)"
                                     >
-                                      <span>💬 WA</span>
+                                      <span>💬 WA Msg</span>
+                                    </button>
+                                  )}
+
+                                  {/* Direct Facebook Messenger */}
+                                  {hasDirectFb && (
+                                    <button
+                                      type="button"
+                                      onClick={() => openSocialDirectMessage('facebook', lead, setAddedSuccess)}
+                                      className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-colors bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100 shadow-2xs cursor-pointer"
+                                      title="Open Facebook Messenger Direct Inbox (Auto-copies pitch)"
+                                    >
+                                      <span>💬 FB Msg</span>
+                                    </button>
+                                  )}
+
+                                  {/* Direct LinkedIn Message */}
+                                  {hasDirectLi && (
+                                    <button
+                                      type="button"
+                                      onClick={() => openSocialDirectMessage('linkedin', lead, setAddedSuccess)}
+                                      className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-colors bg-sky-50 text-sky-700 border-sky-300 hover:bg-sky-100 shadow-2xs cursor-pointer"
+                                      title="Open LinkedIn Messaging (Auto-copies pitch)"
+                                    >
+                                      <span>💬 LI Msg</span>
                                     </button>
                                   )}
                                 </div>
@@ -1737,40 +1912,70 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
                               )}
                             </div>
 
+                            {/* Actual Account Detection Badges */}
+                            <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                              {Boolean(lead.socials?.instagram || lead.socials?.instagramHandle || lead.instagramUrl) ? (
+                                <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-pink-50 text-pink-700 border border-pink-200" title="Actual verified Instagram account">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-pink-500 animate-pulse"></span>
+                                  <span>{lead.socials?.instagramHandle || 'Instagram ✓'}</span>
+                                </span>
+                              ) : null}
+
+                              {Boolean(lead.phone || lead.socials?.whatsapp) ? (
+                                <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200" title="Actual WhatsApp contact ready">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                                  <span>WhatsApp Ready ✓</span>
+                                </span>
+                              ) : null}
+
+                              {Boolean(lead.socials?.facebook || lead.facebookUrl) ? (
+                                <span className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded text-[9px] font-bold bg-blue-50 text-blue-700 border border-blue-200">
+                                  <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>
+                                  <span>FB Page ✓</span>
+                                </span>
+                              ) : null}
+                            </div>
+
                             {/* Social Direct Message Buttons */}
-                            <div className="flex flex-wrap gap-1.5 pt-1">
-                              <button
-                                type="button"
-                                onClick={() => openSocialDirectMessage('facebook', lead, setAddedSuccess)}
-                                className="px-2 py-0.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-bold cursor-pointer transition-colors"
-                                title="Open Facebook Messenger Direct Inbox (Auto-copies tailored pitch)"
-                              >
-                                💬 FB Msg
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => openSocialDirectMessage('instagram', lead, setAddedSuccess)}
-                                className="px-2 py-0.5 rounded bg-pink-50 hover:bg-pink-100 text-pink-700 border border-pink-200 text-[10px] font-bold cursor-pointer transition-colors"
-                                title="Open Instagram Direct DM Inbox (Auto-copies tailored pitch)"
-                              >
-                                💬 {lead.socials?.instagramHandle ? lead.socials.instagramHandle.replace(/^@/, '').slice(0, 9) : 'IG DM'}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => openSocialDirectMessage('linkedin', lead, setAddedSuccess)}
-                                className="px-2 py-0.5 rounded bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 text-[10px] font-bold cursor-pointer transition-colors"
-                                title="Open LinkedIn Messaging"
-                              >
-                                💬 LI Msg
-                              </button>
-                              {lead.phone && (
+                            <div className="flex flex-wrap gap-1.5 pt-0.5">
+                              {Boolean(lead.socials?.instagram || lead.socials?.instagramHandle || lead.instagramUrl) && (
+                                <button
+                                  type="button"
+                                  onClick={() => openSocialDirectMessage('instagram', lead, setAddedSuccess)}
+                                  className="px-2 py-0.5 rounded bg-pink-50 hover:bg-pink-100 text-pink-700 border border-pink-200 text-[10px] font-bold cursor-pointer transition-colors"
+                                  title="Open Instagram Direct DM Inbox (Auto-copies tailored pitch)"
+                                >
+                                  💬 IG DM
+                                </button>
+                              )}
+                              {Boolean(lead.phone || lead.socials?.whatsapp) && (
                                 <button
                                   type="button"
                                   onClick={() => openSocialDirectMessage('whatsapp', lead, setAddedSuccess)}
                                   className="px-2 py-0.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-bold cursor-pointer transition-colors"
-                                  title="Open WhatsApp Direct Chat"
+                                  title="Open WhatsApp Direct Chat (Auto-copies tailored pitch)"
                                 >
-                                  💬 WA
+                                  💬 WA Msg
+                                </button>
+                              )}
+                              {Boolean(lead.socials?.facebook || lead.facebookUrl) && (
+                                <button
+                                  type="button"
+                                  onClick={() => openSocialDirectMessage('facebook', lead, setAddedSuccess)}
+                                  className="px-2 py-0.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-bold cursor-pointer transition-colors"
+                                  title="Open Facebook Messenger Direct Inbox"
+                                >
+                                  💬 FB Msg
+                                </button>
+                              )}
+                              {Boolean(lead.socials?.linkedin || lead.linkedinUrl) && (
+                                <button
+                                  type="button"
+                                  onClick={() => openSocialDirectMessage('linkedin', lead, setAddedSuccess)}
+                                  className="px-2 py-0.5 rounded bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 text-[10px] font-bold cursor-pointer transition-colors"
+                                  title="Open LinkedIn Messaging"
+                                >
+                                  💬 LI Msg
                                 </button>
                               )}
                             </div>
