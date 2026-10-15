@@ -3,18 +3,28 @@ import {
   Search, Globe, Mail, Phone, MapPin, Plus, Check, Loader2, 
   ExternalLink, Sparkles, Filter, RefreshCw, Send, CheckCircle2,
   FileSpreadsheet, Download, Database, Share2, Copy, LayoutGrid,
-  List, ShieldAlert, ShieldCheck, FolderDown, Award, Layers, Upload
+  List, ShieldAlert, ShieldCheck, FolderDown, Award, Layers, Upload,
+  MessageSquare, MessageCircle, Zap
 } from 'lucide-react';
 import api from '../api/client';
+import { 
+  openSocialDirectMessage, 
+  getDirectInboxUrl, 
+  extractInstagramHandle, 
+  extractFacebookUsername 
+} from '../utils/socialDirectLinks';
 
 export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, onOpenSettings }) {
   const [tab, setTab] = useState('search'); // 'search' | 'scrape' | 'upload' | 'vault'
   
+  const hasMapsApiKey = Boolean(settings?.serpApiKey || settings?.googlePlacesApiKey);
+
   // Search state (default to 100 leads across Websites, Facebook, Instagram & LinkedIn)
   const [query, setQuery] = useState('Dental Clinics');
   const [location, setLocation] = useState('Austin, TX');
   const [limit, setLimit] = useState(100);
   const [platforms, setPlatforms] = useState(['websites', 'facebook', 'instagram', 'linkedin']);
+  const [searchMode, setSearchMode] = useState(hasMapsApiKey ? 'api' : 'auto'); // 'api' | 'scraper' | 'hybrid' | 'auto'
   const [autoDownloadExcel, setAutoDownloadExcel] = useState(true);
   const [excludeExisting, setExcludeExisting] = useState(true);
   const [skippedCount, setSkippedCount] = useState(0);
@@ -30,6 +40,7 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
   const [autoSendingRowIndex, setAutoSendingRowIndex] = useState(null);
   const [sentRowIndices, setSentRowIndices] = useState(new Set());
   const [isBulkAutoSending, setIsBulkAutoSending] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState(null);
 
   // Results interactive filter & view state
   const [resultFilter, setResultFilter] = useState('all'); // 'all' | 'email' | 'phone' | 'social' | 'audited'
@@ -69,7 +80,12 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
   // Individual scraping within results table
   const [scrapingIndex, setScrapingIndex] = useState(null);
 
-  const hasMapsApiKey = Boolean(settings?.serpApiKey || settings?.googlePlacesApiKey);
+  // Sync searchMode if API key becomes available
+  useEffect(() => {
+    if (hasMapsApiKey && searchMode === 'scraper') {
+      setSearchMode('api');
+    }
+  }, [hasMapsApiKey]);
 
   // Animate scraping progress steps while isSearching is true
   useEffect(() => {
@@ -227,7 +243,8 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
         location,
         limit: Number(limit),
         platforms,
-        excludeExisting
+        excludeExisting,
+        searchMode
       });
       const leads = res.leads || [];
       setSearchResults(leads);
@@ -336,15 +353,70 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
     }
   };
 
-  const handleBulkAutoSend = async () => {
-    if (selectedIndices.size === 0) return;
-    setIsBulkAutoSending(true);
-    const leadsToProcess = searchResults.filter((_, idx) => selectedIndices.has(idx));
+  const handleBulkAutoSend = async (onlyWithEmails = false) => {
+    let leadsToProcess = [];
+    let targetedIndices = [];
 
+    if (onlyWithEmails) {
+      searchResults.forEach((l, idx) => {
+        if (l.email) {
+          leadsToProcess.push(l);
+          targetedIndices.push(idx);
+        }
+      });
+    } else {
+      searchResults.forEach((l, idx) => {
+        if (selectedIndices.has(idx)) {
+          leadsToProcess.push(l);
+          targetedIndices.push(idx);
+        }
+      });
+    }
+
+    if (leadsToProcess.length === 0) {
+      alert('No leads selected or no leads with verified emails found.');
+      return;
+    }
+
+    const hasNoEmailCount = leadsToProcess.filter(l => !l.email).length;
+    if (!onlyWithEmails && hasNoEmailCount > 0) {
+      const validCount = leadsToProcess.length - hasNoEmailCount;
+      if (validCount === 0) {
+        alert('None of the selected leads have a verified email address.');
+        return;
+      }
+      const confirmAll = window.confirm(
+        `Out of ${leadsToProcess.length} selected leads, ${validCount} have verified emails and ${hasNoEmailCount} have no email.\n\nClick OK to automatically send outreach to all ${validCount} leads with verified emails!`
+      );
+      if (!confirmAll) return;
+      const filtered = [];
+      const newIndices = [];
+      leadsToProcess.forEach((l, i) => {
+        if (l.email) {
+          filtered.push(l);
+          newIndices.push(targetedIndices[i]);
+        }
+      });
+      leadsToProcess = filtered;
+      targetedIndices = newIndices;
+    }
+
+    setIsBulkAutoSending(true);
     try {
       const res = await api.outreach.bulkAutoSend(leadsToProcess);
-      setAddedSuccess(`⚡ Auto-Sent ${res.count} customized cold outreach emails without interruption!`);
-      setSentRowIndices(prev => new Set([...prev, ...selectedIndices]));
+      const sentCount = res.count || 0;
+      const errorCount = res.errors?.length || 0;
+      const skippedCount = res.skippedNoEmail?.length || 0;
+
+      let msg = `⚡ Auto-Sent ${sentCount} outreach emails successfully!`;
+      if (errorCount > 0) {
+        msg += ` (${errorCount} failed: ${res.errors[0]?.error || 'delivery error'})`;
+      }
+      if (skippedCount > 0) {
+        msg += ` (${skippedCount} skipped without email)`;
+      }
+      setAddedSuccess(msg);
+      setSentRowIndices(prev => new Set([...prev, ...targetedIndices]));
       if (onLeadsAdded) onLeadsAdded();
     } catch (err) {
       alert('Bulk auto-send failed: ' + err.message);
@@ -743,8 +815,78 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
 
             </form>
 
-            {/* Target Platforms Selector Bar */}
+            {/* Discovery Engine Selector: Pure API vs Web Scraper vs Hybrid */}
             <div className="flex flex-wrap items-center justify-between gap-3 pt-3.5 border-t border-slate-200">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-xs font-bold text-slate-700 mr-1 flex items-center space-x-1">
+                  <span>Discovery Engine:</span>
+                </span>
+
+                <button
+                  type="button"
+                  onClick={() => setSearchMode('api')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center space-x-1.5 ${
+                    searchMode === 'api'
+                      ? 'bg-emerald-50 text-emerald-800 border-emerald-400 shadow-xs ring-1 ring-emerald-300'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  }`}
+                  title="Uses Google Places / SerpAPI ONLY without fallback scraping"
+                >
+                  <Zap className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>⚡ Google Maps API Only</span>
+                  {searchMode === 'api' && <Check className="w-3 h-3 text-emerald-600" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSearchMode('scraper')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center space-x-1.5 ${
+                    searchMode === 'scraper'
+                      ? 'bg-purple-50 text-purple-800 border-purple-400 shadow-xs ring-1 ring-purple-300'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  }`}
+                  title="Uses Web Scrapers (Overpass, YellowPages, Bing) - No API Key Needed"
+                >
+                  <Globe className="w-3.5 h-3.5 text-purple-600" />
+                  <span>🌐 Web Scraper (No API Key)</span>
+                  {searchMode === 'scraper' && <Check className="w-3 h-3 text-purple-600" />}
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setSearchMode('hybrid')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center space-x-1.5 ${
+                    searchMode === 'hybrid'
+                      ? 'bg-blue-50 text-blue-800 border-blue-400 shadow-xs ring-1 ring-blue-300'
+                      : 'bg-white text-slate-600 border-slate-200 hover:bg-slate-50'
+                  }`}
+                  title="Uses API first, fills any remaining quota with web directory scrapers"
+                >
+                  <Layers className="w-3.5 h-3.5 text-blue-600" />
+                  <span>🔀 Hybrid (API + Scraper)</span>
+                  {searchMode === 'hybrid' && <Check className="w-3 h-3 text-blue-600" />}
+                </button>
+              </div>
+
+              <div className="text-[11px] font-semibold">
+                {searchMode === 'api' ? (
+                  <span className="text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200">
+                    Pure API Mode: Scraper fallback disabled
+                  </span>
+                ) : searchMode === 'scraper' ? (
+                  <span className="text-purple-700 bg-purple-50 px-2.5 py-1 rounded-lg border border-purple-200">
+                    Scraper Mode: Free web directory extraction
+                  </span>
+                ) : (
+                  <span className="text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">
+                    Hybrid Mode: API prioritized with scraper backup
+                  </span>
+                )}
+              </div>
+            </div>
+
+            {/* Target Platforms Selector Bar */}
+            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-slate-100">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-semibold text-slate-600 mr-1">Active Data Sources:</span>
 
@@ -1101,9 +1243,32 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
                       )}
                     </button>
 
+                    {/* Auto-Send All Verified Emails Button */}
+                    {metrics.withEmail > 0 && (
+                      <button
+                        type="button"
+                        onClick={() => handleBulkAutoSend(true)}
+                        disabled={isBulkAutoSending}
+                        className="px-3.5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white text-xs font-black shadow-xs flex items-center space-x-1.5 transition-all disabled:opacity-40"
+                        title={`Automatically send personalized cold outreach to all ${metrics.withEmail} leads with verified emails`}
+                      >
+                        {isBulkAutoSending ? (
+                          <>
+                            <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            <span>Sending {metrics.withEmail} Emails...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Sparkles className="w-3.5 h-3.5 fill-current" />
+                            <span>⚡ Send All ({metrics.withEmail}) Emails</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+
                     {/* Auto-Send Bulk Outreach */}
                     <button
-                      onClick={handleBulkAutoSend}
+                      onClick={() => handleBulkAutoSend(false)}
                       disabled={isBulkAutoSending || selectedIndices.size === 0}
                       className="px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 text-white text-xs font-bold shadow-xs flex items-center space-x-1.5 transition-all disabled:opacity-40"
                     >
@@ -1330,73 +1495,95 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
                               {/* Facebook, Instagram, LinkedIn & Google Maps */}
                               <td className="p-3.5 space-y-1.5">
                                 <div className="flex flex-wrap gap-1.5">
-                                  <a
-                                    href={lead.socials?.facebook || lead.facebookUrl || `https://www.facebook.com/search/pages/?q=${encodeURIComponent(lead.company)}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-colors ${
-                                      hasDirectFb
-                                        ? 'bg-blue-50 text-blue-700 border-blue-300'
-                                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-blue-50 hover:text-blue-700'
-                                    }`}
+                                  {/* Direct Facebook Messenger */}
+                                  <button
+                                    type="button"
+                                    onClick={() => openSocialDirectMessage('facebook', lead, setAddedSuccess)}
+                                    className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-colors bg-blue-50 text-blue-700 border-blue-300 hover:bg-blue-100 shadow-2xs cursor-pointer"
+                                    title="Open Facebook Messenger Direct Inbox (Auto-copies pitch)"
                                   >
-                                    <span>{hasDirectFb ? '📘 Facebook ✓' : '📘 Facebook'}</span>
-                                    <ExternalLink className="w-2.5 h-2.5 opacity-70" />
-                                  </a>
+                                    <span>💬 FB Msg</span>
+                                  </button>
 
-                                  <a
-                                    href={lead.socials?.instagram || lead.instagramUrl || `https://www.instagram.com/explore/search/keyword/?q=${encodeURIComponent(lead.company)}`}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                    className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-colors ${
-                                      hasDirectIg
-                                        ? 'bg-pink-50 text-pink-700 border-pink-300'
-                                        : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-pink-50 hover:text-pink-700'
-                                    }`}
+                                  {/* Direct Instagram DM */}
+                                  <button
+                                    type="button"
+                                    onClick={() => openSocialDirectMessage('instagram', lead, setAddedSuccess)}
+                                    className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-colors bg-pink-50 text-pink-700 border-pink-300 hover:bg-pink-100 shadow-2xs cursor-pointer"
+                                    title="Open Instagram Direct DM Inbox (Auto-copies pitch)"
                                   >
-                                    <span>{lead.socials?.instagramHandle ? `📸 ${lead.socials.instagramHandle}` : hasDirectIg ? '📸 Instagram ✓' : '📸 Instagram'}</span>
-                                    <ExternalLink className="w-2.5 h-2.5 opacity-70" />
-                                  </a>
+                                    <span>💬 {lead.socials?.instagramHandle ? lead.socials.instagramHandle.replace(/^@/, '').slice(0, 10) : 'IG DM'}</span>
+                                  </button>
+
+                                  {/* Direct LinkedIn Message */}
+                                  <button
+                                    type="button"
+                                    onClick={() => openSocialDirectMessage('linkedin', lead, setAddedSuccess)}
+                                    className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-colors bg-sky-50 text-sky-700 border-sky-300 hover:bg-sky-100 shadow-2xs cursor-pointer"
+                                    title="Open LinkedIn Messaging (Auto-copies pitch)"
+                                  >
+                                    <span>💬 LI Msg</span>
+                                  </button>
+
+                                  {/* Direct WhatsApp Message if phone exists */}
+                                  {lead.phone && (
+                                    <button
+                                      type="button"
+                                      onClick={() => openSocialDirectMessage('whatsapp', lead, setAddedSuccess)}
+                                      className="inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-colors bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100 shadow-2xs cursor-pointer"
+                                      title="Open WhatsApp Direct Message (Auto-copies pitch)"
+                                    >
+                                      <span>💬 WA</span>
+                                    </button>
+                                  )}
                                 </div>
 
-                                <div className="flex flex-wrap gap-1.5">
-                                  {lead.linkedinUrl && (
-                                    <a
-                                      href={lead.linkedinUrl}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className={`inline-flex items-center space-x-1 px-2 py-0.5 rounded text-[10px] font-bold border transition-colors ${
-                                        hasDirectLi
-                                          ? 'bg-sky-50 text-sky-700 border-sky-300'
-                                          : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-sky-50 hover:text-sky-700'
-                                      }`}
-                                    >
-                                      <span>{hasDirectLi ? '💼 LinkedIn ✓' : '💼 LinkedIn Co.'}</span>
-                                      <ExternalLink className="w-2.5 h-2.5 opacity-70" />
-                                    </a>
-                                  )}
-
-                                  {lead.linkedinPeopleUrl && (
-                                    <a
-                                      href={lead.linkedinPeopleUrl}
-                                      target="_blank"
-                                      rel="noreferrer"
-                                      className="inline-flex items-center space-x-1 px-2 py-0.5 rounded bg-purple-50 text-purple-700 border border-purple-200 text-[10px] font-semibold transition-colors hover:bg-purple-100"
-                                    >
-                                      <span>Founder</span>
-                                      <ExternalLink className="w-2.5 h-2.5 opacity-70" />
-                                    </a>
-                                  )}
-
+                                <div className="flex flex-wrap items-center gap-1.5 text-[9px]">
                                   {lead.mapsUrl && (
                                     <a
                                       href={lead.mapsUrl}
                                       target="_blank"
                                       rel="noreferrer"
-                                      className="inline-flex items-center space-x-1 px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200 text-[10px] font-semibold transition-colors"
+                                      className="inline-flex items-center space-x-1 px-1.5 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 border border-slate-200"
                                     >
                                       <MapPin className="w-2.5 h-2.5 text-red-500" />
                                       <span>Maps</span>
+                                    </a>
+                                  )}
+
+                                  {(lead.socials?.facebook || lead.facebookUrl) && (
+                                    <a
+                                      href={lead.socials?.facebook || lead.facebookUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-blue-600 hover:underline inline-flex items-center space-x-0.5"
+                                      title="View Facebook Profile Page"
+                                    >
+                                      <span>FB Page ↗</span>
+                                    </a>
+                                  )}
+
+                                  {(lead.socials?.instagram || lead.instagramUrl) && (
+                                    <a
+                                      href={lead.socials?.instagram || lead.instagramUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-pink-600 hover:underline inline-flex items-center space-x-0.5"
+                                      title="View Instagram Profile Page"
+                                    >
+                                      <span>IG Profile ↗</span>
+                                    </a>
+                                  )}
+
+                                  {lead.linkedinUrl && (
+                                    <a
+                                      href={lead.linkedinUrl}
+                                      target="_blank"
+                                      rel="noreferrer"
+                                      className="text-sky-600 hover:underline inline-flex items-center space-x-0.5"
+                                      title="View LinkedIn Page"
+                                    >
+                                      <span>LI Page ↗</span>
                                     </a>
                                   )}
                                 </div>
@@ -1550,32 +1737,42 @@ export default function LeadFinder({ onLeadsAdded, onStartOutreach, settings, on
                               )}
                             </div>
 
-                            {/* Social Pills */}
+                            {/* Social Direct Message Buttons */}
                             <div className="flex flex-wrap gap-1.5 pt-1">
-                              <a
-                                href={lead.socials?.facebook || lead.facebookUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="px-2 py-0.5 rounded bg-blue-50 text-blue-700 border border-blue-200 text-[10px] font-bold"
+                              <button
+                                type="button"
+                                onClick={() => openSocialDirectMessage('facebook', lead, setAddedSuccess)}
+                                className="px-2 py-0.5 rounded bg-blue-50 hover:bg-blue-100 text-blue-700 border border-blue-200 text-[10px] font-bold cursor-pointer transition-colors"
+                                title="Open Facebook Messenger Direct Inbox (Auto-copies tailored pitch)"
                               >
-                                📘 Facebook
-                              </a>
-                              <a
-                                href={lead.socials?.instagram || lead.instagramUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="px-2 py-0.5 rounded bg-pink-50 text-pink-700 border border-pink-200 text-[10px] font-bold"
+                                💬 FB Msg
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openSocialDirectMessage('instagram', lead, setAddedSuccess)}
+                                className="px-2 py-0.5 rounded bg-pink-50 hover:bg-pink-100 text-pink-700 border border-pink-200 text-[10px] font-bold cursor-pointer transition-colors"
+                                title="Open Instagram Direct DM Inbox (Auto-copies tailored pitch)"
                               >
-                                📸 Instagram
-                              </a>
-                              <a
-                                href={lead.linkedinUrl}
-                                target="_blank"
-                                rel="noreferrer"
-                                className="px-2 py-0.5 rounded bg-sky-50 text-sky-700 border border-sky-200 text-[10px] font-bold"
+                                💬 {lead.socials?.instagramHandle ? lead.socials.instagramHandle.replace(/^@/, '').slice(0, 9) : 'IG DM'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => openSocialDirectMessage('linkedin', lead, setAddedSuccess)}
+                                className="px-2 py-0.5 rounded bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 text-[10px] font-bold cursor-pointer transition-colors"
+                                title="Open LinkedIn Messaging"
                               >
-                                💼 LinkedIn
-                              </a>
+                                💬 LI Msg
+                              </button>
+                              {lead.phone && (
+                                <button
+                                  type="button"
+                                  onClick={() => openSocialDirectMessage('whatsapp', lead, setAddedSuccess)}
+                                  className="px-2 py-0.5 rounded bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-[10px] font-bold cursor-pointer transition-colors"
+                                  title="Open WhatsApp Direct Chat"
+                                >
+                                  💬 WA
+                                </button>
+                              )}
                             </div>
 
                             <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[10px] text-slate-700">

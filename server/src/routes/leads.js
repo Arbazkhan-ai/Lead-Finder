@@ -158,7 +158,8 @@ router.post('/search', async (req, res) => {
       location,
       limit = 100,
       platforms = ['websites', 'facebook', 'instagram', 'linkedin'],
-      excludeExisting = true
+      excludeExisting = true,
+      searchMode = 'auto'
     } = req.body;
 
     if (!query) {
@@ -170,7 +171,8 @@ router.post('/search', async (req, res) => {
       location,
       limit,
       platforms,
-      excludeExisting: Boolean(excludeExisting)
+      excludeExisting: Boolean(excludeExisting),
+      searchMode
     });
 
     const skippedCount = results.skippedCount || 0;

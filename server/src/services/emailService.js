@@ -3,9 +3,10 @@ import db from '../db.js';
 import { analyzeClientReply, generateAiReply, generateInitialOutreach, stripEmojis } from './aiNegotiator.js';
 import { findRealEmailForLead } from './leadFinder.js';
 
-let transporter = null;
+let cachedTransporter = null;
+let cachedTransporterKey = null;
 
-function getTransporter() {
+export function getTransporter() {
   const settings = db.getSettings();
   const smtp = settings.smtp || {};
 
@@ -15,16 +16,35 @@ function getTransporter() {
 
   const cleanPass = String(smtp.pass).replace(/\s+/g, '');
   const cleanUser = String(smtp.user).trim();
+  const host = smtp.host || 'smtp.gmail.com';
+  const port = Number(smtp.port) || 587;
+  const secure = port === 465;
 
-  return nodemailer.createTransport({
-    host: smtp.host || 'smtp.gmail.com',
-    port: Number(smtp.port) || 587,
-    secure: Number(smtp.port) === 465,
+  const key = `${host}:${port}:${cleanUser}:${cleanPass}:${secure}`;
+  if (cachedTransporter && cachedTransporterKey === key) {
+    return cachedTransporter;
+  }
+
+  cachedTransporterKey = key;
+  cachedTransporter = nodemailer.createTransport({
+    host,
+    port,
+    secure,
+    pool: true, // Reuse persistent SMTP socket connection across multiple emails
+    maxConnections: 3,
+    maxMessages: 100,
+    rateDelta: 1000,
+    rateLimit: 5,
     auth: {
       user: cleanUser,
       pass: cleanPass
-    }
+    },
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 20000
   });
+
+  return cachedTransporter;
 }
 
 /**
@@ -528,11 +548,13 @@ export async function autoSendReply({ leadId, clientReplyText = null }) {
 /**
  * Bulk Autonomous Outreach
  */
-export async function bulkAutoSendOutreach({ leads = [], skipEmailHunt = false }) {
+export async function bulkAutoSendOutreach({ leads = [], skipEmailHunt = false, delayMs = 1200 }) {
   const sentList = [];
   const errors = [];
+  const skippedNoEmail = [];
 
-  for (const item of leads) {
+  for (let i = 0; i < leads.length; i++) {
+    const item = leads[i];
     try {
       let leadId = item.id;
       if (!leadId || !db.getLeadById(leadId)) {
@@ -540,12 +562,47 @@ export async function bulkAutoSendOutreach({ leads = [], skipEmailHunt = false }
         leadId = created.id;
       }
 
-      const res = await autoSendOutreach({
-        leadId,
-        toEmail: item.email || null,
-        skipEmailHunt: skipEmailHunt || leads.length > 10
-      });
-      sentList.push(res);
+      // Check if candidate has a valid email address
+      const candidateEmail = (item.email || (Array.isArray(item.allEmails) && item.allEmails[0]) || '').trim();
+      if (!candidateEmail && (skipEmailHunt || !item.website)) {
+        skippedNoEmail.push({ company: item.company, reason: 'No email found' });
+        continue;
+      }
+
+      // Respect Gmail SMTP rate limit by pacing sends (1200ms default)
+      if (sentList.length > 0 && delayMs > 0) {
+        await new Promise(r => setTimeout(r, delayMs));
+      }
+
+      // Retry mechanism on transient network or SMTP drops
+      let res = null;
+      let lastErr = null;
+      for (let attempt = 1; attempt <= 2; attempt++) {
+        try {
+          res = await autoSendOutreach({
+            leadId,
+            toEmail: candidateEmail || null,
+            skipEmailHunt: skipEmailHunt || leads.length > 10
+          });
+          lastErr = null;
+          break;
+        } catch (attemptErr) {
+          lastErr = attemptErr;
+          const msg = attemptErr.message || '';
+          if (attempt < 2 && (msg.includes('421') || msg.includes('timeout') || msg.includes('Greeting') || msg.includes('ECONNRESET'))) {
+            cachedTransporter = null;
+            await new Promise(r => setTimeout(r, 2000));
+          } else {
+            break;
+          }
+        }
+      }
+
+      if (res) {
+        sentList.push(res);
+      } else if (lastErr) {
+        errors.push({ company: item.company, email: candidateEmail, error: lastErr.message });
+      }
     } catch (err) {
       errors.push({ company: item.company, error: err.message });
     }
@@ -553,8 +610,10 @@ export async function bulkAutoSendOutreach({ leads = [], skipEmailHunt = false }
 
   return {
     count: sentList.length,
+    totalAttempted: leads.length,
     sent: sentList,
-    errors
+    errors,
+    skippedNoEmail
   };
 }
 

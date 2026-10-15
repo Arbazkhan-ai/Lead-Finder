@@ -217,16 +217,19 @@ router.post('/auto-reply', async (req, res) => {
 // POST /api/outreach/bulk-auto-send - Bulk autonomous send to all selected leads
 router.post('/bulk-auto-send', async (req, res) => {
   try {
-    const { leads } = req.body;
+    const { leads, delayMs } = req.body;
     if (!Array.isArray(leads) || leads.length === 0) {
       return res.status(400).json({ success: false, error: 'Array of leads is required' });
     }
 
-    const result = await bulkAutoSendOutreach({ leads });
+    const result = await bulkAutoSendOutreach({ leads, delayMs });
     res.json({
       success: true,
       count: result.count,
-      sent: result.sent
+      totalAttempted: result.totalAttempted,
+      sent: result.sent,
+      errors: result.errors,
+      skippedNoEmail: result.skippedNoEmail
     });
   } catch (err) {
     res.status(500).json({ success: false, error: err.message });

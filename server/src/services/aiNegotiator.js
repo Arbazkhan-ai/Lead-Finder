@@ -975,8 +975,14 @@ export function generateMultiChannelMessages({
     `Hey ${leadFirstName}! Reaching out regarding ${company}. We build custom AI automation for ${category} teams to capture after-hours inquiries instantly. Would love to send over a quick 2-min demo if you are exploring intake automation!`
   );
 
+  // 7. FACEBOOK MESSENGER: Direct, friendly, appointment concierge hook
+  const facebookMessage = stripEmojis(
+    `Hi ${leadFirstName}, I came across your Facebook page for ${company} and wanted to reach out. Are you guys currently answering client inquiries and booking appointments through Messenger manually? We deploy custom AI agents that reply in under 30 seconds 24/7 and book qualified clients. Would you be open to a quick 3-minute demo showing how it works for ${company}?`
+  );
+
   const messages = {
     whatsapp: whatsappMessage,
+    facebook: facebookMessage,
     instagram: instagramMessage,
     linkedin_note: linkedinNote,
     linkedin_inmail: linkedinInMail,
@@ -1006,10 +1012,28 @@ export function buildChannelRedirectUrls({ lead = {}, messages = {} }) {
   const igUrl = lead.socials?.instagram || lead.instagramUrl || '';
   if (!igHandle && igUrl) {
     const m = igUrl.match(/instagram\.com\/([a-zA-Z0-9._]+)/i);
-    if (m && m[1] && !['p', 'explore', 'reel', 'stories'].includes(m[1].toLowerCase())) {
+    if (m && m[1] && !['p', 'explore', 'reel', 'stories', 'direct'].includes(m[1].toLowerCase())) {
       igHandle = m[1];
     }
   }
+
+  // Facebook Page & Messenger Direct Message URL
+  const fbUrl = lead.socials?.facebook || lead.facebookUrl || '';
+  let fbUsername = '';
+  if (fbUrl && !fbUrl.includes('/search/')) {
+    const idMatch = fbUrl.match(/profile\.php\?id=(\d+)/i);
+    if (idMatch && idMatch[1]) {
+      fbUsername = idMatch[1];
+    } else {
+      const pageMatch = fbUrl.match(/facebook\.com\/(?:pages\/[^/]+\/)?([a-zA-Z0-9._-]+)/i);
+      if (pageMatch && pageMatch[1] && !['search', 'share', 'sharer', 'home', 'groups', 'events'].includes(pageMatch[1].toLowerCase())) {
+        fbUsername = pageMatch[1];
+      }
+    }
+  }
+  const fbDmUrl = fbUsername
+    ? `https://m.me/${fbUsername}`
+    : (fbUrl || `https://www.facebook.com/messages/t/`);
 
   // LinkedIn URLs
   const liUrl = lead.socials?.linkedin || lead.linkedinUrl || lead.linkedinPeopleUrl || '';
@@ -1022,13 +1046,15 @@ export function buildChannelRedirectUrls({ lead = {}, messages = {} }) {
     ? `https://wa.me/${waPhone}?text=${encodeURIComponent(messages.whatsapp || '')}`
     : `https://wa.me/?text=${encodeURIComponent(messages.whatsapp || '')}`;
 
-  // Instagram direct message links
+  // Instagram direct message links (ig.me/m/ redirects directly to recipient inbox)
   const igDmUrl = igHandle
     ? `https://ig.me/m/${igHandle}`
     : (igUrl || `https://www.instagram.com/direct/inbox/`);
 
-  // LinkedIn messaging / profile URL
-  const linkedInUrl = liUrl || `https://www.linkedin.com/search/results/all/?keywords=${encodeURIComponent(lead.company || '')}`;
+  // LinkedIn messaging direct compose
+  const linkedInUrl = liUrl && liUrl.includes('/in/')
+    ? `https://www.linkedin.com/messaging/thread/new/`
+    : (liUrl || `https://www.linkedin.com/messaging/`);
 
   // SMS direct intent link
   const smsUrl = cleanPhone
@@ -1037,7 +1063,7 @@ export function buildChannelRedirectUrls({ lead = {}, messages = {} }) {
 
   // Twitter/X URL
   const twitterUrl = twitterHandle
-    ? `https://twitter.com/${twitterHandle}`
+    ? `https://twitter.com/messages/compose?recipient_id=${twitterHandle}`
     : (lead.socials?.twitter || 'https://twitter.com/messages');
 
   return {
@@ -1050,6 +1076,15 @@ export function buildChannelRedirectUrls({ lead = {}, messages = {} }) {
       fallbackUrl: `https://web.whatsapp.com/send?text=${encodeURIComponent(messages.whatsapp || '')}`,
       actionLabel: 'Launch WhatsApp Chat'
     },
+    facebook: {
+      channel: 'facebook',
+      name: 'Facebook Messenger',
+      url: fbDmUrl,
+      profileUrl: fbUrl,
+      target: fbUsername ? `@${fbUsername}` : (fbUrl ? 'Facebook Page' : ''),
+      hasTarget: Boolean(fbUsername || fbUrl),
+      actionLabel: 'Open Facebook Messenger (m.me)'
+    },
     instagram: {
       channel: 'instagram',
       name: 'Instagram',
@@ -1057,7 +1092,7 @@ export function buildChannelRedirectUrls({ lead = {}, messages = {} }) {
       profileUrl: igHandle ? `https://www.instagram.com/${igHandle}/` : igUrl,
       target: igHandle ? `@${igHandle}` : (igUrl ? 'Profile Link' : ''),
       hasTarget: Boolean(igHandle || igUrl),
-      actionLabel: 'Open Instagram DM'
+      actionLabel: 'Open Instagram Direct Message (ig.me)'
     },
     linkedin: {
       channel: 'linkedin',
@@ -1065,7 +1100,7 @@ export function buildChannelRedirectUrls({ lead = {}, messages = {} }) {
       url: linkedInUrl,
       target: liUrl ? (liUrl.includes('/in/') ? 'Personal Profile' : 'Company Page') : '',
       hasTarget: Boolean(liUrl),
-      actionLabel: 'Open LinkedIn Profile & InMail'
+      actionLabel: 'Open LinkedIn Message & InMail'
     },
     sms: {
       channel: 'sms',

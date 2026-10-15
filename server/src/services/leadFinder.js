@@ -1040,7 +1040,8 @@ export async function searchLeads({
   location,
   limit = 100,
   platforms = ['websites', 'facebook', 'instagram', 'linkedin'],
-  excludeExisting = true
+  excludeExisting = true,
+  searchMode = 'auto'
 }) {
   const targetLimit = Math.min(Math.max(Number(limit) || 100, 10), 500);
   const searchTerm = query.trim();
@@ -1054,6 +1055,24 @@ export async function searchLeads({
   const includeFacebook = activePlatforms.includes('facebook');
   const includeInstagram = activePlatforms.includes('instagram');
   const includeLinkedin = activePlatforms.includes('linkedin');
+
+  const settings = db.getSettings();
+  const serpApiKey = settings.serpApiKey || '';
+  const googlePlacesApiKey = settings.googlePlacesApiKey || '';
+  const hasApiKey = Boolean(serpApiKey || googlePlacesApiKey);
+
+  // Determine effective search mode: 'api' | 'scraper' | 'hybrid'
+  const effectiveMode = searchMode === 'api'
+    ? 'api'
+    : searchMode === 'scraper'
+    ? 'scraper'
+    : searchMode === 'hybrid'
+    ? 'hybrid'
+    : (hasApiKey ? 'api' : 'scraper');
+
+  const isApiOnly = effectiveMode === 'api';
+  const allowApi = (effectiveMode === 'api' || effectiveMode === 'hybrid') && hasApiKey;
+  const allowScraper = effectiveMode === 'scraper' || effectiveMode === 'hybrid' || (!hasApiKey && effectiveMode === 'api');
 
   // Load all known fingerprints from active pipeline leads AND previously generated search history
   const existingFingerprints = excludeExisting ? db.getAllExistingFingerprints() : new Set();
@@ -1161,7 +1180,7 @@ export async function searchLeads({
   };
 
   // =========================================================================
-  // SOURCE 1: Dedicated Facebook, Instagram & LinkedIn Social Scrapers
+  // SOURCE 1: Dedicated Facebook, Instagram & LinkedIn Social Scrapers (Non-API mode or explicitly selected)
   // =========================================================================
   const requestedSocialPlatforms = [
     includeFacebook ? 'facebook' : null,
@@ -1169,7 +1188,7 @@ export async function searchLeads({
     includeLinkedin ? 'linkedin' : null
   ].filter(Boolean);
 
-  if (requestedSocialPlatforms.length > 0) {
+  if (requestedSocialPlatforms.length > 0 && !isApiOnly) {
     try {
       const socialLeads = await scrapeSocialPlatformLeads({
         query: searchTerm,
@@ -1184,14 +1203,11 @@ export async function searchLeads({
     }
   }
 
-  const settings = db.getSettings();
-  const serpApiKey = settings.serpApiKey || '';
-
   // =========================================================================
   // SOURCE 2: SerpAPI (Google Maps Multi-Page Search) if provided
   // =========================================================================
-  if (includeWebsites && serpApiKey) {
-    const pagesToFetch = Math.min(Math.ceil(targetLimit / 20), 5);
+  if (includeWebsites && serpApiKey && allowApi) {
+    const pagesToFetch = Math.min(Math.ceil(targetLimit / 20), isApiOnly ? 15 : 6);
     for (let page = 0; page < pagesToFetch; page++) {
       if (rawLeads.length >= targetLimit) break;
       try {
@@ -1221,36 +1237,44 @@ export async function searchLeads({
   // =========================================================================
   // SOURCE 3: Google Places API (Text Search) if provided
   // =========================================================================
-  const googlePlacesApiKey = settings.googlePlacesApiKey || '';
-  if (includeWebsites && googlePlacesApiKey && rawLeads.length < targetLimit) {
+  if (includeWebsites && googlePlacesApiKey && allowApi && rawLeads.length < targetLimit) {
     try {
-      const gUrl = `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(combined)}&key=${googlePlacesApiKey}`;
-      const gRes = await axios.get(gUrl, { timeout: 8000 });
-      if (Array.isArray(gRes.data.results)) {
-        for (const place of gRes.data.results) {
-          let website = '';
-          let phone = '';
-          if (place.place_id) {
-            try {
-              const dUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=website,formatted_phone_number&key=${googlePlacesApiKey}`;
-              const dRes = await axios.get(dUrl, { timeout: 4000 });
-              if (dRes.data.result) {
-                website = dRes.data.result.website || '';
-                phone = dRes.data.result.formatted_phone_number || '';
-              }
-            } catch (_) {}
+      let pageToken = '';
+      for (let p = 0; p < (isApiOnly ? 4 : 2); p++) {
+        if (rawLeads.length >= targetLimit) break;
+        const gUrl = pageToken
+          ? `https://maps.googleapis.com/maps/api/place/textsearch/json?pagetoken=${pageToken}&key=${googlePlacesApiKey}`
+          : `https://maps.googleapis.com/maps/api/place/textsearch/json?query=${encodeURIComponent(combined)}&key=${googlePlacesApiKey}`;
+        const gRes = await axios.get(gUrl, { timeout: 8000 });
+        if (Array.isArray(gRes.data.results)) {
+          for (const place of gRes.data.results) {
+            let website = '';
+            let phone = '';
+            if (place.place_id) {
+              try {
+                const dUrl = `https://maps.googleapis.com/maps/api/place/details/json?place_id=${place.place_id}&fields=website,formatted_phone_number&key=${googlePlacesApiKey}`;
+                const dRes = await axios.get(dUrl, { timeout: 4000 });
+                if (dRes.data.result) {
+                  website = dRes.data.result.website || '';
+                  phone = dRes.data.result.formatted_phone_number || '';
+                }
+              } catch (_) {}
+            }
+            addUniqueLead({
+              name: 'Business Decision Maker',
+              company: place.name,
+              category: (place.types && place.types[0]) ? place.types[0].replace(/_/g, ' ') : searchTerm,
+              website,
+              phone,
+              address: place.formatted_address || searchLoc,
+              source: 'Google Maps Places API'
+            });
+            if (rawLeads.length >= targetLimit) break;
           }
-          addUniqueLead({
-            name: 'Business Decision Maker',
-            company: place.name,
-            category: (place.types && place.types[0]) ? place.types[0].replace(/_/g, ' ') : searchTerm,
-            website,
-            phone,
-            address: place.formatted_address || searchLoc,
-            source: 'Google Maps Places API'
-          });
-          if (rawLeads.length >= targetLimit) break;
         }
+        pageToken = gRes.data.next_page_token;
+        if (!pageToken) break;
+        await new Promise(r => setTimeout(r, 2000));
       }
     } catch (gErr) {
       console.warn('Google Places API error:', gErr.message);
@@ -1258,9 +1282,9 @@ export async function searchLeads({
   }
 
   // =========================================================================
-  // SOURCE 4: OpenStreetMap Overpass API (Multi-Mirror Failover)
+  // SOURCE 4: OpenStreetMap Overpass API (Multi-Mirror Failover) - Scraper mode only
   // =========================================================================
-  if (includeWebsites && rawLeads.length < targetLimit && searchLoc) {
+  if (allowScraper && includeWebsites && rawLeads.length < targetLimit && searchLoc) {
     try {
       const geoUrl = `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(searchLoc)}&format=json&limit=1`;
       const geoRes = await axios.get(geoUrl, {
@@ -1362,9 +1386,9 @@ export async function searchLeads({
   }
 
   // =========================================================================
-  // SOURCE 5: Multi-Page YellowPages Live Business Directory Scraper
+  // SOURCE 5: Multi-Page YellowPages Live Business Directory Scraper - Scraper mode only
   // =========================================================================
-  if (includeWebsites && rawLeads.length < targetLimit && searchLoc) {
+  if (allowScraper && includeWebsites && rawLeads.length < targetLimit && searchLoc) {
     const ypPages = [1, 2, 3, 4, 5, 6, 7, 8];
     await mapWithConcurrency(ypPages, 2, async (page) => {
       if (rawLeads.length >= targetLimit * 2) return;
@@ -1405,9 +1429,9 @@ export async function searchLeads({
   }
 
   // =========================================================================
-  // SOURCE 6: Multi-Query OpenStreetMap Nominatim Expansion
+  // SOURCE 6: Multi-Query OpenStreetMap Nominatim Expansion - Scraper mode only
   // =========================================================================
-  if (includeWebsites && rawLeads.length < targetLimit) {
+  if (allowScraper && includeWebsites && rawLeads.length < targetLimit) {
     const expandedTerms = buildNicheQueryExpansion(searchTerm).slice(0, 6);
     const skipTypes = [
       'cemetery', 'peak', 'residential', 'road', 'administrative', 'boundary',
@@ -1470,9 +1494,9 @@ export async function searchLeads({
   }
 
   // =========================================================================
-  // SOURCE 7: Multi-Engine Live Web Search (Bing + Yahoo + DuckDuckGo)
+  // SOURCE 7: Multi-Engine Live Web Search (Bing + Yahoo + DuckDuckGo) - Scraper mode only
   // =========================================================================
-  if (includeWebsites && rawLeads.length < targetLimit * 1.2) {
+  if (allowScraper && includeWebsites && rawLeads.length < targetLimit * 1.2) {
     const expandedTerms = buildNicheQueryExpansion(searchTerm).slice(0, 5);
     const webQueries = [
       `${combined} -clutch -yelp -expertise -tripadvisor -wikipedia`,
@@ -1516,9 +1540,6 @@ export async function searchLeads({
   // =========================================================================
   // STEP 8: High-Speed Concurrent Deep Website & Social Crawl
   // =========================================================================
-  // =========================================================================
-  // STEP 8: High-Speed Concurrent Deep Website & Social Crawl
-  // =========================================================================
   // Prioritize raw leads that already have websites, phones, or socials
   rawLeads.sort((a, b) => {
     const aVal = (a.website ? 4 : 0) + (a.email ? 3 : 0) + (a.phone ? 2 : 0) + (a.socials?.facebook || a.socials?.instagram ? 1 : 0);
@@ -1533,10 +1554,10 @@ export async function searchLeads({
     if (targetUrlToCrawl) {
       try {
         const scraped = await scrapeWebsite(targetUrlToCrawl, {
-          maxSubpages: lead.website ? 2 : 0,
-          timeoutMs: 4000,
-          fastMode: false,
-          includeAudit: Boolean(lead.website)
+          maxSubpages: isApiOnly ? 1 : (lead.website ? 2 : 0),
+          timeoutMs: isApiOnly ? 3000 : 4000,
+          fastMode: isApiOnly,
+          includeAudit: isApiOnly ? false : Boolean(lead.website)
         });
         if (scraped.primaryEmail && !lead.email) {
           lead.email = scraped.primaryEmail;

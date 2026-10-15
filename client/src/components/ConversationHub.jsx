@@ -75,10 +75,11 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
   const [isBulkSendingUncontacted, setIsBulkSendingUncontacted] = useState(false);
   const [hubUploadMsg, setHubUploadMsg] = useState('');
 
-  // Omnichannel Direct Outreach (WhatsApp, Instagram, LinkedIn, SMS, Twitter)
-  const [activeChannel, setActiveChannel] = useState('email'); // 'email' | 'whatsapp' | 'instagram' | 'linkedin' | 'sms' | 'twitter'
+  // Omnichannel Direct Outreach (WhatsApp, Facebook Messenger, Instagram, LinkedIn, SMS, Twitter)
+  const [activeChannel, setActiveChannel] = useState('email'); // 'email' | 'whatsapp' | 'facebook' | 'instagram' | 'linkedin' | 'sms' | 'twitter'
   const [channelMessages, setChannelMessages] = useState({
     whatsapp: '',
+    facebook: '',
     instagram: '',
     linkedin_note: '',
     linkedin_inmail: '',
@@ -90,7 +91,7 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
   const [linkedInVariant, setLinkedInVariant] = useState('note'); // 'note' | 'inmail'
   const [channelCopiedToast, setChannelCopiedToast] = useState('');
   const [directActionToast, setDirectActionToast] = useState('');
-  const [editingSocialField, setEditingSocialField] = useState(null); // 'phone' | 'instagram' | 'linkedin'
+  const [editingSocialField, setEditingSocialField] = useState(null); // 'phone' | 'facebook' | 'instagram' | 'linkedin'
   const [editingSocialValue, setEditingSocialValue] = useState('');
 
   // Simulation Sandbox
@@ -260,7 +261,28 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
       ? `https://ig.me/m/${igHandle}`
       : (igUrl || 'https://www.instagram.com/direct/inbox/');
     window.open(url, '_blank');
-    setDirectActionToast('Instagram DM copied! Opening Instagram...');
+    setDirectActionToast('Instagram DM copied! Opening Instagram inbox...');
+    setTimeout(() => setDirectActionToast(''), 4500);
+  };
+
+  const handleLaunchFacebook = () => {
+    const msg = channelMessages.facebook || channelMessages.instagram || '';
+    if (navigator?.clipboard?.writeText) {
+      navigator.clipboard.writeText(msg).catch(() => {});
+    }
+    const fbUrl = selectedLead?.socials?.facebook || selectedLead?.facebookUrl || '';
+    let fbUsername = '';
+    if (fbUrl) {
+      const m = fbUrl.match(/facebook\.com\/([a-zA-Z0-9.-]+)/i);
+      if (m && m[1] && !['profile.php', 'groups', 'pages', 'search', 'share', 'events'].includes(m[1].toLowerCase())) {
+        fbUsername = m[1];
+      }
+    }
+    const url = fbUsername
+      ? `https://m.me/${fbUsername}`
+      : (fbUrl || `https://www.facebook.com/messages/`);
+    window.open(url, '_blank');
+    setDirectActionToast('Facebook Messenger pitch copied! Opening Messenger inbox...');
     setTimeout(() => setDirectActionToast(''), 4500);
   };
 
@@ -312,9 +334,17 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
   const handleSaveSocialField = async (field, val) => {
     if (!selectedLead || !val.trim()) return;
     try {
-      let updatePayload = {};
       if (field === 'phone') {
         updatePayload = { phone: val.trim() };
+      } else if (field === 'facebook') {
+        const cleanVal = val.trim();
+        updatePayload = {
+          facebookUrl: cleanVal.startsWith('http') ? cleanVal : `https://www.facebook.com/${cleanVal.replace(/^@/, '')}`,
+          socials: {
+            ...(selectedLead.socials || {}),
+            facebook: cleanVal.startsWith('http') ? cleanVal : `https://www.facebook.com/${cleanVal.replace(/^@/, '')}`
+          }
+        };
       } else if (field === 'instagram') {
         const cleanHandle = val.trim().startsWith('@') ? val.trim() : `@${val.trim()}`;
         updatePayload = {
@@ -973,6 +1003,20 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
 
                   <button
                     type="button"
+                    onClick={() => setActiveChannel('facebook')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all whitespace-nowrap ${
+                      activeChannel === 'facebook'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200'
+                    }`}
+                  >
+                    <MessageSquare className="w-3.5 h-3.5 text-blue-600" />
+                    <span>Facebook Messenger</span>
+                    {(selectedLead?.socials?.facebook || selectedLead?.facebookUrl) && <span className="w-1.5 h-1.5 rounded-full bg-blue-500"></span>}
+                  </button>
+
+                  <button
+                    type="button"
                     onClick={() => setActiveChannel('linkedin')}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold flex items-center space-x-1.5 transition-all whitespace-nowrap ${
                       activeChannel === 'linkedin'
@@ -1097,12 +1141,14 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
                     <div className="flex items-center space-x-3">
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center font-black ${
                         activeChannel === 'whatsapp' ? 'bg-emerald-100 text-emerald-700 border border-emerald-200' :
-                        activeChannel === 'linkedin' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+                        activeChannel === 'facebook' ? 'bg-blue-100 text-blue-700 border border-blue-200' :
+                        activeChannel === 'linkedin' ? 'bg-sky-100 text-sky-700 border border-sky-200' :
                         activeChannel === 'instagram' ? 'bg-pink-100 text-pink-700 border border-pink-200' :
                         activeChannel === 'sms' ? 'bg-indigo-100 text-indigo-700 border border-indigo-200' :
                         'bg-sky-100 text-sky-700 border border-sky-200'
                       }`}>
                         {activeChannel === 'whatsapp' && <MessageCircle className="w-5 h-5" />}
+                        {activeChannel === 'facebook' && <MessageSquare className="w-5 h-5" />}
                         {activeChannel === 'linkedin' && <Share2 className="w-5 h-5" />}
                         {activeChannel === 'instagram' && <MessageSquare className="w-5 h-5" />}
                         {activeChannel === 'sms' && <Smartphone className="w-5 h-5" />}
@@ -1113,8 +1159,9 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
                         <h4 className="text-xs font-extrabold text-slate-900 uppercase tracking-wider flex items-center space-x-2">
                           <span>
                             {activeChannel === 'whatsapp' && 'WhatsApp Direct Outbound'}
+                            {activeChannel === 'facebook' && 'Facebook Messenger Direct (m.me)'}
                             {activeChannel === 'linkedin' && 'LinkedIn Social Pitch'}
-                            {activeChannel === 'instagram' && 'Instagram Direct Message'}
+                            {activeChannel === 'instagram' && 'Instagram Direct Message (ig.me)'}
                             {activeChannel === 'sms' && 'Direct SMS Outbound'}
                             {activeChannel === 'twitter' && 'X (Twitter) DM'}
                           </span>
@@ -1127,6 +1174,9 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
                         <div className="text-[11px] text-slate-500 flex items-center space-x-2 mt-0.5">
                           {activeChannel === 'whatsapp' && (
                             <span>Target Phone: <strong className="text-slate-800 font-mono">{selectedLead?.phone || 'No phone saved'}</strong></span>
+                          )}
+                          {activeChannel === 'facebook' && (
+                            <span>Target FB: <strong className="text-slate-800 font-mono truncate max-w-[220px]">{selectedLead?.socials?.facebook || selectedLead?.facebookUrl || 'No FB profile saved'}</strong></span>
                           )}
                           {activeChannel === 'sms' && (
                             <span>Target Phone: <strong className="text-slate-800 font-mono">{selectedLead?.phone || 'No phone saved'}</strong></span>
@@ -1148,6 +1198,7 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
                               onClick={() => {
                                 setEditingSocialField(activeChannel);
                                 if (activeChannel === 'whatsapp' || activeChannel === 'sms') setEditingSocialValue(selectedLead?.phone || '');
+                                else if (activeChannel === 'facebook') setEditingSocialValue(selectedLead?.socials?.facebook || selectedLead?.facebookUrl || '');
                                 else if (activeChannel === 'instagram') setEditingSocialValue(selectedLead?.socials?.instagramHandle || '');
                                 else if (activeChannel === 'linkedin') setEditingSocialValue(selectedLead?.socials?.linkedin || selectedLead?.linkedinUrl || '');
                                 else if (activeChannel === 'twitter') setEditingSocialValue(selectedLead?.socials?.twitter || '');
@@ -1169,6 +1220,7 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
                               onChange={(e) => setEditingSocialValue(e.target.value)}
                               placeholder={
                                 activeChannel === 'whatsapp' || activeChannel === 'sms' ? '+1 555 123 4567' :
+                                activeChannel === 'facebook' ? 'https://facebook.com/username' :
                                 activeChannel === 'instagram' ? '@business_ig' :
                                 activeChannel === 'linkedin' ? 'https://linkedin.com/in/profile' :
                                 '@handle'
@@ -1179,6 +1231,7 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
                               type="button"
                               onClick={() => handleSaveSocialField(
                                 activeChannel === 'whatsapp' || activeChannel === 'sms' ? 'phone' :
+                                activeChannel === 'facebook' ? 'facebook' :
                                 activeChannel === 'instagram' ? 'instagram' :
                                 activeChannel === 'linkedin' ? 'linkedin' : 'twitter',
                                 editingSocialValue
@@ -1255,6 +1308,7 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
                           <span className="font-mono text-slate-500">
                             {(() => {
                               const val = activeChannel === 'whatsapp' ? channelMessages.whatsapp :
+                                activeChannel === 'facebook' ? channelMessages.facebook :
                                 activeChannel === 'linkedin' ? channelMessages.linkedin_inmail :
                                 activeChannel === 'instagram' ? channelMessages.instagram :
                                 activeChannel === 'sms' ? channelMessages.sms :
@@ -1270,6 +1324,7 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
                       rows={activeChannel === 'linkedin' && linkedInVariant === 'note' ? 4 : 6}
                       value={
                         activeChannel === 'whatsapp' ? (channelMessages.whatsapp || '') :
+                        activeChannel === 'facebook' ? (channelMessages.facebook || '') :
                         activeChannel === 'linkedin' ? (linkedInVariant === 'note' ? (channelMessages.linkedin_note || '') : (channelMessages.linkedin_inmail || '')) :
                         activeChannel === 'instagram' ? (channelMessages.instagram || '') :
                         activeChannel === 'sms' ? (channelMessages.sms || '') :
@@ -1278,6 +1333,7 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
                       onChange={(e) => {
                         const clean = stripEmojis(e.target.value);
                         if (activeChannel === 'whatsapp') setChannelMessages(prev => ({ ...prev, whatsapp: clean }));
+                        else if (activeChannel === 'facebook') setChannelMessages(prev => ({ ...prev, facebook: clean }));
                         else if (activeChannel === 'linkedin') {
                           if (linkedInVariant === 'note') setChannelMessages(prev => ({ ...prev, linkedin_note: clean }));
                           else setChannelMessages(prev => ({ ...prev, linkedin_inmail: clean }));
@@ -1297,6 +1353,7 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
                       type="button"
                       onClick={() => {
                         const txt = activeChannel === 'whatsapp' ? channelMessages.whatsapp :
+                          activeChannel === 'facebook' ? channelMessages.facebook :
                           activeChannel === 'linkedin' ? (linkedInVariant === 'note' ? channelMessages.linkedin_note : channelMessages.linkedin_inmail) :
                           activeChannel === 'instagram' ? channelMessages.instagram :
                           activeChannel === 'sms' ? channelMessages.sms :
@@ -1318,6 +1375,18 @@ export default function ConversationHub({ initialLead, leads, onLeadUpdated, set
                         >
                           <MessageCircle className="w-4 h-4" />
                           <span>Launch WhatsApp (wa.me)</span>
+                          <ExternalLink className="w-3.5 h-3.5 ml-0.5" />
+                        </button>
+                      )}
+
+                      {activeChannel === 'facebook' && (
+                        <button
+                          type="button"
+                          onClick={handleLaunchFacebook}
+                          className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-sm flex items-center justify-center space-x-2 transition-all"
+                        >
+                          <MessageSquare className="w-4 h-4" />
+                          <span>Direct Redirect to Messenger (m.me)</span>
                           <ExternalLink className="w-3.5 h-3.5 ml-0.5" />
                         </button>
                       )}
